@@ -80,7 +80,7 @@ jobs:
           # fairseq2 de PyPI est compilé pour CUDA : variante processeur, index de Meta.
           pip install --extra-index-url https://download.pytorch.org/whl/cpu \
             --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.8.0/cpu \
-            "torch==2.8.0" -r transcription/requirements.txt \
+            "torch==2.8.0" "torchaudio==2.8.0" -r transcription/requirements.txt \
             -r transcription/requirements-omnilingual.txt huggingface_hub httpx
           pip install -e .
           python -c "import torch; print('torch', torch.__version__)"

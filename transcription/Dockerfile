@@ -15,7 +15,7 @@ COPY requirements*.txt /app/
 RUN if [ "$MOTEUR" = omnilingual ]; then \
         apt-get update && apt-get install -y --no-install-recommends build-essential cmake zlib1g-dev \
         && pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu \
-           --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.8.0/cpu "torch==2.8.0" \
+           --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.8.0/cpu "torch==2.8.0" "torchaudio==2.8.0" \
            -r /app/requirements.txt -r /app/requirements-omnilingual.txt \
         && apt-get purge -y build-essential cmake zlib1g-dev && apt-get autoremove -y \
         && rm -rf /var/lib/apt/lists/*; \
