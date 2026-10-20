@@ -17,17 +17,20 @@ STATUTS = ("recu", "envoye", "echec")
 class Conversation(Base):
     """Où en est un usager quand une réponse libre est attendue (badge, quartier).
 
-    Rien d'autre n'est gardé : ni messages, ni numéro. Une attente de plus de
-    WHATSAPP_ATTENTE_MINUTES est oubliée, et la ligne disparaît à la purge.
+    Rien d'autre n'est gardé : ni messages, ni numéro. Seule exception : la question
+    posée dans le tout premier message, gardée masquée le temps de choisir la langue.
+    Une attente de plus de WHATSAPP_ATTENTE_MINUTES est oubliée, et la ligne disparaît
+    à la purge.
     """
 
     __tablename__ = "conversations_whatsapp"
     __table_args__ = {"schema": SCHEMA_COEUR}
 
     usager_empreinte: Mapped[str] = mapped_column(String(64), primary_key=True)
-    # « badge », « localite » ou vide.
+    # « badge », « localite », « confirmation », « question » ou vide.
     attente: Mapped[str | None] = mapped_column(String(20))
-    # Choix déjà faits pendant l'attente (code du territoire…), jamais de texte libre.
+    # Choix déjà faits pendant l'attente (code du territoire…). Pas de texte libre, sauf
+    # la question du premier message (masquée), le temps de choisir la langue.
     contexte: Mapped[dict] = mapped_column(JSON, default=dict)
     maj_a: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), index=True

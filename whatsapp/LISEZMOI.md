@@ -10,7 +10,7 @@ citoyen ──► WhatsApp (Meta) ──POST signé──► /v1/whatsapp/webhoo
 
 ## Ce que vit le citoyen
 
-1. Au premier message, il reçoit un accueil et une **liste des langues**. Sa langue est ensuite retenue, et c'est la même que celle choisie par USSD ou par SMS : l'usager est reconnu par l'empreinte de son numéro.
+1. Au premier message, il reçoit un accueil et une **liste des langues**. S'il a posé une question dans ce message, elle reçoit sa réponse dès la langue choisie. Sa langue est ensuite retenue, et c'est la même que celle choisie par USSD ou par SMS : l'usager est reconnu par l'empreinte de son numéro.
 2. Le **menu** propose : questions fréquentes, date de passage, vérifier un agent, ménage non recensé, parler à un conseiller, changer de langue.
 3. Il peut aussi **écrire sa question**. La base fermée donne la **réponse complète validée**, suivie de l'**audio** et de la **vidéo** en langue locale s'ils existent dans Directus (champs `audio_url` et `video_url`). Sans réponse validée, il peut demander à être rappelé, et la demande arrive dans la console des agents avec l'origine « WhatsApp ».
 4. Les mots-clés du SMS fonctionnent aussi : `AGENT AB1234`, `PASSAGE GOMA`…

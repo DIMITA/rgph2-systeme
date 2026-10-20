@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from coeur.badges.service import normaliser_badge
 from coeur.config import Parametres
+from coeur.confidentialite.service import masquer_donnees_sensibles
 from coeur.connaissances import service as connaissances
 from coeur.connaissances.depot import Corpus
 from coeur.connaissances.schemas import ContenuSortie
@@ -181,6 +182,10 @@ def choisir(ctx: Contexte, choix: str) -> list[Message]:
     if action == "langue" and len(partie) == 2 and partie[1] in codes:
         mobile.enregistrer_langue(ctx.session, u.empreinte, partie[1])
         u.langue = partie[1]
+        attente, contexte = attente_en_cours(ctx)
+        if attente == "question" and contexte.get("question"):
+            attendre(ctx, None)
+            return ecrire(ctx, contexte["question"])
         return menu(ctx)
     if action == "langues":
         return langues(ctx)
@@ -263,6 +268,10 @@ def arreter(ctx: Contexte) -> list[Message]:
     return [bouton_menu(ctx, ctx.t["wa_stop_ok" if supprimes else "wa_stop_aucun"])]
 
 
+def _salutation(mots: list[str]) -> bool:
+    return not mots or (len(mots) <= 2 and mots[0] in SALUTATIONS)
+
+
 def ecrire(ctx: Contexte, texte: str) -> list[Message]:
     """Réponse à un message écrit : saisie attendue, mot-clé, salutation ou question."""
     t, u = ctx.t, ctx.usager
@@ -291,7 +300,7 @@ def ecrire(ctx: Contexte, texte: str) -> list[Message]:
     mots = normaliser(texte).split()
     if len(mots) == 1 and mots[0] in MOTS_STOP:
         return arreter(ctx)
-    if not mots or (len(mots) <= 2 and mots[0] in SALUTATIONS):
+    if _salutation(mots):
         return menu(ctx, t["wa_bienvenue"])
 
     reponse_commande = executer_commande(ctx.session, ctx.reglages, u, texte)
@@ -310,6 +319,11 @@ def ecrire(ctx: Contexte, texte: str) -> list[Message]:
 
 def traiter(ctx: Contexte, entree: Entree, premier_contact: bool) -> list[Message]:
     if premier_contact:
+        # Une question posée dans le premier message est gardée (masquée) le temps du
+        # choix de la langue, puis traitée comme si elle venait d'être écrite.
+        texte = entree.valeur.strip() if entree.type == "texte" else ""
+        if not _salutation(normaliser(texte).split()):
+            attendre(ctx, "question", question=masquer_donnees_sensibles(texte)[:500])
         return langues(ctx, ctx.t["wa_bienvenue"])
     if entree.type == "choix":
         return choisir(ctx, entree.valeur)

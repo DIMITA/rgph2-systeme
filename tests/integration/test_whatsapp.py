@@ -132,7 +132,7 @@ def test_notification_repetee_traitee_une_seule_fois(client, session_admin):
 
 def test_premier_contact_puis_langue_retenue(client, session_admin):
     t = Telephone(client)
-    [accueil] = t.ecrire("Quand passent les agents ?")
+    [accueil] = t.ecrire("Bonjour")
     assert isinstance(accueil, Liste)
     assert accueil.corps.startswith("Bienvenue sur le service officiel du recensement")
     assert [l.id for l in accueil.lignes] == ["langue:fr", "langue:ln", "langue:sw", "langue:kg",
@@ -140,6 +140,23 @@ def test_premier_contact_puis_langue_retenue(client, session_admin):
     [menu] = t.toucher("langue:ln")
     assert menu.bouton == "Menu" and menu.lignes[0].titre == "Mituna oyo batunaka mingi"
     assert session_admin.scalar(select(PreferenceLangue.langue)) == "ln"
+
+
+def test_question_du_premier_message_traitee_apres_le_choix_de_la_langue(
+        client, exemples, session_admin):
+    t = Telephone(client)
+    [accueil] = t.ecrire("Comment reconnaître un vrai agent recenseur ? Mon numéro : 0812345678")
+    assert isinstance(accueil, Liste) and accueil.lignes[0].id == "langue:fr"
+    # Gardée masquée le temps du choix de la langue.
+    assert "0812345678" not in str(session_admin.scalar(select(Conversation.contexte)))
+    texte, _menu = t.toucher("langue:fr")
+    assert "badge officiel avec sa photo" in texte.corps
+    assert session_admin.scalar(select(Interaction.resultat)) == "reponse"
+    session_admin.expire_all()
+    assert session_admin.scalar(select(Conversation.attente)) is None
+    # Ensuite, un changement de langue ramène simplement au menu.
+    [menu] = t.toucher("langue:ln")
+    assert isinstance(menu, Liste) and menu.bouton == "Menu"
 
 
 def test_langue_choisie_par_ussd_reprise_sur_whatsapp(client, session_admin):
