@@ -49,6 +49,11 @@ services:
       NUMERO_VERT: ${NUMERO_VERT:-}
       # Adresse du proxy HTTPS : sans elle, tous les citoyens partagent la même limite de débit.
       FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-127.0.0.1}
+      # Tableau de bord : vérifie les comptes auprès de Directus.
+      DIRECTUS_URL: http://directus:8055
+      SECRET_SESSION: ${SECRET_SESSION:?à définir dans .env}
+      SESSION_HTTPS_SEULEMENT: ${SESSION_HTTPS_SEULEMENT:-false}
+      FUSEAU_HORAIRE: ${FUSEAU_HORAIRE:-Africa/Kinshasa}
     ports:
       - "8000:8000"
     depends_on:

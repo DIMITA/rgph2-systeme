@@ -22,7 +22,7 @@ from coeur.connaissances import service as connaissances
 from coeur.connaissances.depot import Corpus
 from coeur.connaissances.routes import corpus_courant
 from coeur.connaissances.schemas import ReponseSortie
-from coeur.portail.limiteur import LimiteurDebit
+from coeur.limiteur import LimiteurDebit
 from coeur.portail.textes import textes
 from coeur.signalements import service as signalements
 from coeur.signalements.schemas import SignalementEntree

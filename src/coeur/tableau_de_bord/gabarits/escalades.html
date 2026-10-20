@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block titre %}Questions sans réponse{% endblock %}
+{% block contenu %}
+<h1>Questions sans réponse validée</h1>
+<p>Ces questions ont été escaladées faute de contenu validé assez proche. Pour améliorer le service, dans Directus :
+ajoutez une <strong>formulation</strong> à un contenu existant si la réponse existe déjà, ou rédigez un <strong>nouveau contenu</strong> à faire valider par le BCR.</p>
+
+<section class="carte">
+  <h2>Les plus fréquentes ({{ jours }} derniers jours)</h2>
+  {% if frequentes %}
+  <table>
+    <thead><tr><th scope="col">Question (en minuscules)</th><th scope="col">Langue</th><th scope="col">Nombre</th></tr></thead>
+    <tbody>
+    {% for texte, code_langue, nombre in frequentes %}
+      <tr><td>{{ texte }}</td><td>{{ noms.get(code_langue, code_langue) }}</td><td>{{ nombre }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="vide">Aucune question escaladée sur la période.</p>{% endif %}
+</section>
+
+<section class="carte">
+  <h2>Les plus récentes</h2>
+  <form class="filtres" method="get" action="/tableau-de-bord/escalades">
+    <label>Langue
+      <select name="langue">
+        <option value="">Toutes</option>
+        {% for l in langues %}<option value="{{ l.code }}"{% if l.code == langue %} selected{% endif %}>{{ l.nom }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Motif
+      <select name="motif">
+        <option value="">Tous</option>
+        {% for code, libelle in motifs.items() %}<option value="{{ code }}"{% if code == motif %} selected{% endif %}>{{ libelle }}</option>{% endfor %}
+      </select>
+    </label>
+    <button type="submit">Filtrer</button>
+  </form>
+  {% if recentes %}
+  <table>
+    <thead><tr><th scope="col">Date</th><th scope="col">Canal</th><th scope="col">Langue</th><th scope="col">Territoire</th><th scope="col">Motif</th><th scope="col">Question</th></tr></thead>
+    <tbody>
+    {% for i in recentes %}
+      <tr>
+        <td>{{ i.horodatage | heure_locale }}</td>
+        <td>{{ noms.get(i.canal, i.canal) }}</td>
+        <td>{{ noms.get(i.langue_demandee, i.langue_demandee) }}</td>
+        <td>{{ noms.get(i.territoire_code, "—") if i.territoire_code else "—" }}</td>
+        <td>{{ motifs.get(i.motif_escalade, i.motif_escalade) }}</td>
+        <td>{{ i.texte_masque }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="pages">
+    {% if page > 1 %}<a href="?langue={{ langue }}&amp;motif={{ motif }}&amp;page={{ page - 1 }}">← Précédentes</a>{% endif %}
+    {% if page_suivante %}<a href="?langue={{ langue }}&amp;motif={{ motif }}&amp;page={{ page + 1 }}">Suivantes →</a>{% endif %}
+  </p>
+  {% else %}<p class="vide">Aucune question escaladée.</p>{% endif %}
+</section>
+{% endblock %}

@@ -1,4 +1,4 @@
-from coeur.portail.limiteur import LimiteurDebit
+from coeur.limiteur import LimiteurDebit
 
 
 def test_autorise_jusqu_a_la_limite_puis_refuse():

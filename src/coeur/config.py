@@ -43,6 +43,20 @@ class Parametres(BaseSettings):
     portail_questions_par_minute: int = 20
     portail_signalements_par_heure: int = 5
 
+    # Tableau de bord : connexion avec les comptes Directus.
+    directus_url: str = "http://directus:8055"
+    roles_tableau_de_bord: str = "Administrator,Validateur BCR,Tableau de bord"
+    # Signe le cookie de session du tableau de bord (32 caractères au moins).
+    secret_session: str = Field(min_length=32)
+    # À activer en production (HTTPS) : le cookie n'est alors jamais envoyé en clair.
+    session_https_seulement: bool = False
+    # Heure affichée dans le tableau de bord (la base enregistre en UTC).
+    # La RDC a deux fuseaux : Africa/Kinshasa (UTC+1) et Africa/Lubumbashi (UTC+2).
+    fuseau_horaire: str = "Africa/Kinshasa"
+
+    def roles_autorises(self) -> set[str]:
+        return {r.strip() for r in self.roles_tableau_de_bord.split(",") if r.strip()}
+
     def cles_par_canal(self) -> dict[str, Canal]:
         """Associe chaque clé d'API au canal qu'elle identifie."""
         resultat: dict[str, Canal] = {}

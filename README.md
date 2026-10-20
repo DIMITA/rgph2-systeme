@@ -3,7 +3,8 @@
 Ce dépôt contient le **cœur commun** auquel se brancheront les six canaux du RGPH-2 : USSD/SMS, WhatsApp, portail web, kiosques OKAPI, Ambassadeurs et centre d'écoute. Il couvre la Phase 1 de [architecture.md](architecture.md) :
 
 - étape 1 : le cœur ;
-- étape 2 : le **portail web et son chatbot**, premier canal branché.
+- étape 2 : le **portail web et son chatbot**, premier canal branché ;
+- étape 3 : le **tableau de bord du Ministère**.
 
 Le cœur fait trois choses :
 
@@ -22,6 +23,7 @@ Les contenus sont rédigés et validés par le Ministère dans **Directus** (le 
 - [Travailler dans Directus](#travailler-dans-directus)
 - [Utiliser l'API](#utiliser-lapi)
 - [Portail web et chatbot](#portail-web-et-chatbot)
+- [Tableau de bord du Ministère](#tableau-de-bord-du-ministère)
 - [Protection des données](#protection-des-données)
 - [Exploitation](#exploitation)
 - [Tests](#tests)
@@ -66,9 +68,10 @@ Chaque module est un dossier de `src/coeur/` qui contient `modeles.py` (tables),
 | `territoires/` | Référentiel des provinces, villes et territoires |
 | `confidentialite/` | Empreinte des numéros, masquage des numéros et courriels dans les textes |
 | `retention/` | Suppression des données à la fin de la période de conservation |
-| `portail/` | Portail web citoyen et chatbot (canal « web ») : pages, textes de l'interface, limiteur de débit |
+| `portail/` | Portail web citoyen et chatbot (canal « web ») : pages et textes de l'interface |
+| `tableau_de_bord/` | Tableau de bord du Ministère : synthèse, questions sans réponse, signalements. Connexion avec les comptes Directus |
 
-Fichiers transverses : `main.py` (assemblage), `config.py` (réglages), `securite.py` (clés d'API), `base.py` (base de données), `commun.py` (types partagés).
+Fichiers transverses : `main.py` (assemblage), `config.py` (réglages), `securite.py` (clés d'API), `base.py` (base de données), `commun.py` (types partagés), `limiteur.py` (limite de débit par adresse IP).
 
 ### Comment une question est traitée
 
@@ -110,6 +113,7 @@ python outils/verifier_pile.py      # avec les variables du .env chargées dans 
 | --- | --- |
 | Portail citoyen | http://localhost:8000/fr (ou `/ln`, `/sw`, `/kg`, `/lua`) |
 | API | http://localhost:8000/v1/…. Documentation interactive : http://localhost:8000/docs |
+| Tableau de bord | http://localhost:8000/tableau-de-bord (comptes Directus autorisés) |
 | Directus | http://localhost:8055 (compte administrateur : `DIRECTUS_ADMIN_EMAIL` / `DIRECTUS_ADMIN_MDP`) |
 
 Au démarrage, `docker compose up` lance dans l'ordre :
@@ -130,6 +134,7 @@ Au démarrage, `docker compose up` lance dans l'ordre :
 | **Rédacteur** | Créer des contenus et des traductions, les modifier tant qu'ils sont `brouillon` ou `en_revue` | Publier ; modifier un contenu déjà publié ; toucher aux formulations ; supprimer |
 | **Validateur BCR** | Tout ce que fait le Rédacteur, plus publier, archiver, gérer les formulations et les langues | Administrer Directus |
 | **Lecteur** | Consulter | Modifier |
+| **Tableau de bord** | Se connecter au tableau de bord du Ministère | Voir ou modifier les contenus |
 
 Pour créer un compte : **Paramètres → Utilisateurs → Créer**, puis choisir le rôle. Ces règles sont définies dans `outils/configurer_directus.py`, et `outils/verifier_pile.py` vérifie qu'elles sont bien appliquées.
 
@@ -235,6 +240,34 @@ Le portail est le canal « web ». Il fait partie du cœur et appelle directemen
 
 ---
 
+## Tableau de bord du Ministère
+
+Adresse : **http://localhost:8000/tableau-de-bord**. Les pages sont rendues par le serveur, sans bibliothèque externe, et ne sont jamais mises en cache.
+
+| Page | Contenu |
+| --- | --- |
+| Synthèse | Questions posées, part sans réponse validée, usagers distincts, signalements. Répartitions par canal, langue, province ou territoire, et signalements par type. Filtre par période, **export CSV** (séparateur `;`, ouvrable dans Excel) |
+| Questions sans réponse | Les questions escaladées les plus fréquentes (30 derniers jours) et les plus récentes, filtrables par langue et par motif. **C'est la liste de travail pour enrichir la FAQ** dans Directus |
+| Signalements | Liste filtrable (territoire, type, statut) avec quartier ou village et précisions, pour les équipes de terrain, et changement de statut |
+
+**Connexion avec les comptes Directus.** Il n'y a pas de second annuaire : le Ministère crée et désactive les comptes dans Directus. Rôles admis (`ROLES_TABLEAU_DE_BORD`) :
+
+- *Administrator* ;
+- *Validateur BCR* ;
+- *Tableau de bord* : n'a accès à aucun contenu, par exemple pour l'UNFPA.
+
+Les Rédacteurs et les Lecteurs sont refusés. La session dure 8 heures, dans un cookie signé limité au chemin `/tableau-de-bord` : les citoyens du portail ne reçoivent jamais de cookie. Le compte n'est vérifié qu'à la connexion : un compte désactivé dans Directus garde l'accès jusqu'à la fin de sa session. Les tentatives de connexion sont limitées à 10 par quart d'heure et par adresse IP.
+
+**Mêmes garde-fous que l'API :**
+
+- pas de maille plus fine que le territoire ;
+- effectifs inférieurs à `SEUIL_SECRET_STATISTIQUE` affichés « < 5 », y compris dans l'export ;
+- aucune localité dans les statistiques. Seule la liste des signalements montre le quartier ou le village, parce que les équipes de terrain en ont besoin.
+
+**Heures.** La base enregistre en UTC. Le tableau de bord affiche les heures et découpe les journées selon `FUSEAU_HORAIRE` : `Africa/Kinshasa` (UTC+1) par défaut, ou `Africa/Lubumbashi` (UTC+2) pour l'est.
+
+---
+
 ## Protection des données
 
 Ces règles sont **appliquées par le code** et **vérifiées par des tests**, pas seulement écrites :
@@ -292,12 +325,16 @@ python outils/verifier_pile.py
 | `PORTAIL_QUESTIONS_PAR_MINUTE` | 20 | Limite par adresse IP |
 | `PORTAIL_SIGNALEMENTS_PAR_HEURE` | 5 | Limite par adresse IP |
 | `FORWARDED_ALLOW_IPS` | 127.0.0.1 | Adresse du proxy HTTPS (voir [Portail web](#portail-web-et-chatbot)) |
+| `SECRET_SESSION` | (aucun) | Signe le cookie du tableau de bord. Le changer déconnecte tout le monde |
+| `SESSION_HTTPS_SEULEMENT` | false | À passer à `true` dès que le site est servi en HTTPS |
+| `ROLES_TABLEAU_DE_BORD` | Administrator,Validateur BCR,Tableau de bord | Rôles Directus admis au tableau de bord |
+| `FUSEAU_HORAIRE` | Africa/Kinshasa | Heure affichée et découpage des journées du tableau de bord |
 
 ### Avant la mise en production
 
 - [ ] Remplacer `donnees/territoires.csv` par le référentiel officiel de l'INS.
 - [ ] Générer des secrets forts et uniques, et ranger `PEPPER_TELEPHONE` dans un coffre-fort.
-- [ ] Placer l'API et Directus derrière un proxy HTTPS (Nginx, Caddy…), renseigner `FORWARDED_ALLOW_IPS`. Ne pas exposer PostgreSQL.
+- [ ] Placer l'API et Directus derrière un proxy HTTPS (Nginx, Caddy…), renseigner `FORWARDED_ALLOW_IPS` et passer `SESSION_HTTPS_SEULEMENT=true`. Ne pas exposer PostgreSQL.
 - [ ] Renseigner `NUMERO_VERT` dès qu'il est attribué. Faire relire `ln.json` et traduire l'interface en kiswahili, kikongo et tshiluba.
 - [ ] Mettre en place des sauvegardes PostgreSQL chiffrées (`pg_dump`) **et tester leur restauration**.
 - [ ] Ne pas charger les exemples (`ENVIRONNEMENT=production`).
@@ -316,7 +353,7 @@ pytest
 
 - `tests/unitaires/` : moteur de recherche, confidentialité, limiteur de débit. Ces tests ne demandent pas de base.
 - `tests/integration/` : API de bout en bout contre PostgreSQL, migrations, droits des rôles. Chaque lancement repart d'une base vide et vérifie au passage que les migrations s'appliquent et s'annulent.
-- `outils/verifier_pile.py` : vérification sur la pile complète, Directus compris.
+- `outils/verifier_pile.py` : vérification sur la pile complète, Directus compris : circuit de validation et connexion au tableau de bord. Il ne journalise qu'une seule question, pour ne pas fausser les statistiques.
 
 ---
 

@@ -6,6 +6,8 @@ import pytest
 from sqlalchemy import update
 
 from coeur.interactions.modeles import Interaction
+from coeur.statistiques.schemas import Axe
+from coeur.statistiques.service import repartir_interactions, repartir_signalements
 from tests.integration.conftest import MINISTERE, USSD, WEB
 
 QUESTION = "Quand les agents recenseurs passeront-ils chez moi ?"
@@ -94,3 +96,37 @@ def test_filtre_par_dates(client, activite, session_admin):
     hier = (datetime.now(timezone.utc) - timedelta(days=1)).date()
     lignes = stats(client, niveau="territoire", depuis=hier.isoformat())["interactions"]
     assert {l["unite"] for l in lignes} == {"KCE-MAT"}
+
+
+def test_repartition_par_axe(session_admin, activite):
+    [total] = repartir_interactions(session_admin, None, None, None, 5)
+    assert (total.valeur, total.nb_interactions, total.nb_usagers_uniques) == ("RDC", 8, 8)
+
+    lignes = repartir_interactions(session_admin, Axe.TERRITOIRE, None, None, 5)
+    par_territoire = {e.valeur: e for e in lignes}
+    assert par_territoire["NKV-GOM"].nb_interactions == 6
+    assert par_territoire["KCE-MAT"].masque and par_territoire["KCE-MAT"].nb_interactions is None
+
+    [web] = repartir_interactions(session_admin, Axe.CANAL, None, None, 5)
+    assert (web.valeur, web.nb_interactions) == ("web", 8)
+
+    [rumeurs] = repartir_signalements(session_admin, Axe.TYPE, None, None, 5)
+    assert (rumeurs.valeur, rumeurs.nb_signalements, rumeurs.masque) == ("rumeur", None, True)
+    assert repartir_signalements(session_admin, Axe.TYPE, None, None, 3)[0].nb_signalements == 3
+
+
+def test_axes_incompatibles_refuses(session_admin):
+    with pytest.raises(ValueError):
+        repartir_interactions(session_admin, Axe.TYPE, None, None, 5)
+    with pytest.raises(ValueError):
+        repartir_signalements(session_admin, Axe.LANGUE, None, None, 5)
+
+
+def test_totaux_nationaux(session_admin, activite):
+    [signalements] = repartir_signalements(session_admin, None, None, None, 3)
+    assert (signalements.valeur, signalements.nb_signalements) == ("RDC", 3)
+
+
+def test_repartitions_sur_base_vide(session_admin):
+    assert repartir_interactions(session_admin, None, None, None, 5) == []
+    assert repartir_signalements(session_admin, None, None, None, 5) == []

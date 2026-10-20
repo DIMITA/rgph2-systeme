@@ -7,6 +7,8 @@ leur présentation dans Directus et crée les rôles et droits :
   Il ne peut ni publier, ni modifier un contenu publié, ni toucher aux formulations.
 - Validateur BCR : seul habilité à passer un contenu ou une traduction à « publié ».
 - Lecteur : consultation seule.
+- Tableau de bord : aucun accès aux contenus ; sert seulement à se connecter au
+  tableau de bord du Ministère (ex. comptes UNFPA).
 
 Idempotent : on peut le relancer après chaque mise à jour (les droits des trois
 rôles sont recréés à l'identique).
@@ -137,6 +139,8 @@ ROLES = {
     "Rédacteur": ("edit_note", "Rédige les contenus ; ne peut pas publier.", droits_redacteur),
     "Validateur BCR": ("verified", "Valide et publie les contenus au nom du BCR.", droits_validateur),
     "Lecteur": ("visibility", "Consultation seule.", droits_lecteur),
+    "Tableau de bord": ("monitoring", "Accès au tableau de bord du Ministère, pas aux contenus.",
+                        lambda: []),
 }
 
 
@@ -205,10 +209,12 @@ def configurer_roles(d: Directus) -> None:
         })
         if anciens:
             d.appel("DELETE", "/permissions", json=[p["id"] for p in anciens])
-        d.appel("POST", "/permissions", json=[
-            {"policy": politique["id"], "fields": ["*"], "permissions": {}, "validation": {}, **droit}
-            for droit in droits()
-        ])
+        if droits():
+            d.appel("POST", "/permissions", json=[
+                {"policy": politique["id"], "fields": ["*"], "permissions": {}, "validation": {},
+                 **droit}
+                for droit in droits()
+            ])
         if d.premier("/roles", "name", nom) is None:
             d.appel("POST", "/roles", json={
                 "name": nom, "icon": icone, "description": description,

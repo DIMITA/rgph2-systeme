@@ -1,0 +1,27 @@
+{# Effectif affiché, ou « < seuil » s'il est masqué (secret statistique). #}
+{% macro nb(valeur, seuil) %}{% if valeur is none %}&lt; {{ seuil }}{% else %}{{ "{:,}".format(valeur).replace(",", " ") }}{% endif %}{% endmacro %}
+
+{# Tableau de répartition avec barres <progress> (aucun style en ligne : CSP). #}
+{% macro repartition(titre, lignes, champ, noms, seuil, maximum, escalades=false) %}
+<section class="carte">
+  <h2>{{ titre }}</h2>
+  {% if lignes %}
+  <table>
+    <thead><tr><th scope="col"></th><th scope="col">Effectif</th>{% if escalades %}<th scope="col">Sans réponse</th>{% endif %}<th scope="col" class="barre"></th></tr></thead>
+    <tbody>
+    {% set m = maximum(lignes, champ) %}
+    {% for l in lignes %}
+      <tr>
+        <th scope="row">{{ noms.get(l.valeur, l.valeur) }}</th>
+        <td>{{ nb(l[champ], seuil) }}</td>
+        {% if escalades %}<td>{{ nb(l.nb_escalades, seuil) }}</td>{% endif %}
+        <td class="barre"><progress max="{{ m }}" value="{{ l[champ] or 0 }}"></progress></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="vide">Aucune donnée sur la période.</p>
+  {% endif %}
+</section>
+{% endmacro %}

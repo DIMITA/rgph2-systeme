@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "_macros.html" import nb, repartition %}
+{% block titre %}Synthèse{% endblock %}
+{% block contenu %}
+<h1>Synthèse</h1>
+
+<form class="filtres" method="get" action="/tableau-de-bord">
+  <label>Du <input type="date" name="depuis" value="{{ depuis or '' }}"></label>
+  <label>au <input type="date" name="jusqu_a" value="{{ jusqu_a or '' }}"></label>
+  <label>Répartition géographique
+    <select name="niveau">
+      <option value="province"{% if niveau == "province" %} selected{% endif %}>Par province</option>
+      <option value="territoire"{% if niveau == "territoire" %} selected{% endif %}>Par territoire</option>
+    </select>
+  </label>
+  <button type="submit">Afficher</button>
+  <a class="bouton" href="/tableau-de-bord/export.csv?niveau={{ niveau }}&amp;depuis={{ depuis or '' }}&amp;jusqu_a={{ jusqu_a or '' }}">Exporter (CSV)</a>
+</form>
+
+<div class="chiffres">
+  <div class="chiffre"><span class="valeur">{{ nb(total.nb_interactions, seuil) if total else 0 }}</span><span>questions posées</span></div>
+  <div class="chiffre"><span class="valeur">
+    {%- if total and total.nb_interactions and total.nb_escalades is not none -%}
+      {{ (100 * total.nb_escalades / total.nb_interactions) | round | int }} %
+    {%- else -%}—{%- endif -%}
+  </span><span>sans réponse validée</span></div>
+  <div class="chiffre"><span class="valeur">{{ nb(total.nb_usagers_uniques, seuil) if total else 0 }}</span><span>usagers distincts (avec numéro)</span></div>
+  <div class="chiffre"><span class="valeur">{{ nb(signalements_total.nb_signalements, seuil) if signalements_total else 0 }}</span><span>signalements</span></div>
+</div>
+
+<div class="grille">
+  {{ repartition("Questions par canal", repartitions.canal, "nb_interactions", noms, seuil, maximum, escalades=true) }}
+  {{ repartition("Questions par langue", repartitions.langue, "nb_interactions", noms, seuil, maximum, escalades=true) }}
+  {{ repartition("Questions par " ~ niveau, repartitions.geo, "nb_interactions", noms, seuil, maximum, escalades=true) }}
+  {{ repartition("Signalements par type", repartitions.signalements_type, "nb_signalements", noms, seuil, maximum) }}
+  {{ repartition("Signalements par " ~ niveau, repartitions.signalements_geo, "nb_signalements", noms, seuil, maximum) }}
+</div>
+
+<p class="note">« &lt; {{ seuil }} » : effectif masqué (secret statistique). Aucune donnée n'est présentée à une maille plus fine que le territoire.
+« Non renseigné » : le canal n'a pas indiqué de territoire.</p>
+{% endblock %}

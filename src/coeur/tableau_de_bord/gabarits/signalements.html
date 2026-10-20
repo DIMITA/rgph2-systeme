@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block titre %}Signalements{% endblock %}
+{% block contenu %}
+<h1>Signalements</h1>
+
+<form class="filtres" method="get" action="/tableau-de-bord/signalements">
+  <label>Territoire
+    <select name="territoire_code">
+      <option value="">Tous</option>
+      {% for p in provinces %}{% if p.territoires %}
+      <optgroup label="{{ p.nom }}">
+        {% for t in p.territoires %}<option value="{{ t.code }}"{% if t.code == filtres.territoire_code %} selected{% endif %}>{{ t.nom }}</option>{% endfor %}
+      </optgroup>
+      {% endif %}{% endfor %}
+    </select>
+  </label>
+  <label>Type
+    <select name="type">
+      <option value="">Tous</option>
+      {% for code, libelle in types.items() %}<option value="{{ code }}"{% if code == filtres.type %} selected{% endif %}>{{ libelle }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Statut
+    <select name="statut">
+      <option value="">Tous</option>
+      {% for code, libelle in statuts.items() %}<option value="{{ code }}"{% if code == filtres.statut %} selected{% endif %}>{{ libelle }}</option>{% endfor %}
+    </select>
+  </label>
+  <button type="submit">Filtrer</button>
+</form>
+
+{% if signalements %}
+<table>
+  <thead><tr><th scope="col">Date</th><th scope="col">Type</th><th scope="col">Territoire</th><th scope="col">Quartier / village</th><th scope="col">Précisions</th><th scope="col">Canal</th><th scope="col">Statut</th></tr></thead>
+  <tbody>
+  {% for s in signalements %}
+    <tr class="signalement">
+      <td>{{ s.horodatage | heure_locale }}</td>
+      <td>{{ types.get(s.type, s.type) }}</td>
+      <td>{{ noms.get(s.territoire_code, s.territoire_code) }}</td>
+      <td>{{ s.localite or "—" }}</td>
+      <td>{{ s.description or "—" }}</td>
+      <td>{{ noms.get(s.canal, s.canal) }}</td>
+      <td>
+        <form class="statut" method="post" action="/tableau-de-bord/signalements/{{ s.id }}">
+          <select name="statut" aria-label="Statut">
+            {% for code, libelle in statuts.items() %}<option value="{{ code }}"{% if code == s.statut %} selected{% endif %}>{{ libelle }}</option>{% endfor %}
+          </select>
+          <button type="submit">Enregistrer</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+<p class="pages">
+  {% set f = "territoire_code=" ~ filtres.territoire_code ~ "&type=" ~ filtres.type ~ "&statut=" ~ filtres.statut %}
+  {% if page > 1 %}<a href="?{{ f }}&amp;page={{ page - 1 }}">← Précédents</a>{% endif %}
+  {% if page_suivante %}<a href="?{{ f }}&amp;page={{ page + 1 }}">Suivants →</a>{% endif %}
+</p>
+{% else %}
+<p class="vide">Aucun signalement ne correspond.</p>
+{% endif %}
+{% endblock %}

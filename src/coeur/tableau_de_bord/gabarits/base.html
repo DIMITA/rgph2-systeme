@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>{% block titre %}Tableau de bord{% endblock %} — RGPH-2</title>
+<link rel="stylesheet" href="/tableau-de-bord/statique/tableau.css">
+</head>
+<body>
+<header>
+  <a class="marque" href="/tableau-de-bord">RGPH-2 · Tableau de bord</a>
+  {% if utilisateur %}
+  <nav>
+    <a href="/tableau-de-bord">Synthèse</a>
+    <a href="/tableau-de-bord/escalades">Questions sans réponse</a>
+    <a href="/tableau-de-bord/signalements">Signalements</a>
+  </nav>
+  <form class="session" method="post" action="/tableau-de-bord/deconnexion">
+    <span>{{ utilisateur.email }}</span> <button type="submit">Se déconnecter</button>
+  </form>
+  {% endif %}
+</header>
+<main>
+{% block contenu %}{% endblock %}
+</main>
+</body>
+</html>

@@ -37,3 +37,24 @@ class StatistiquesSortie(BaseModel):
     seuil_secret: int
     interactions: list[LigneInteractions]
     signalements: list[LigneSignalements]
+
+
+class Axe(StrEnum):
+    """Axes de répartition du tableau de bord. Aucun n'est plus fin que le territoire."""
+
+    CANAL = "canal"
+    LANGUE = "langue"
+    PROVINCE = "province"
+    TERRITOIRE = "territoire"
+    TYPE = "type"  # signalements seulement
+
+
+class Effectifs(BaseModel):
+    """Une ligne de répartition. None = valeur masquée (secret statistique)."""
+
+    valeur: str
+    nb_interactions: int | None = None
+    nb_escalades: int | None = None
+    nb_usagers_uniques: int | None = None
+    nb_signalements: int | None = None
+    masque: bool

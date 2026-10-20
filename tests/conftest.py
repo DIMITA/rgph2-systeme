@@ -32,5 +32,7 @@ os.environ.update(
         "NUMERO_VERT": "0800 000 000",
         "PORTAIL_QUESTIONS_PAR_MINUTE": "20",
         "PORTAIL_SIGNALEMENTS_PAR_HEURE": "5",
+        "SECRET_SESSION": "secret-de-session-de-test-" + "y" * 32,
+        "DIRECTUS_URL": "http://directus-factice",
     }
 )

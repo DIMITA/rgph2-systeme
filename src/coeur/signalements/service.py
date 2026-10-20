@@ -26,6 +26,7 @@ def lister(
     session: Session,
     territoire_code: str | None = None,
     statut: str | None = None,
+    type_: str | None = None,
     limite: int = 100,
     decalage: int = 0,
 ) -> list[Signalement]:
@@ -34,6 +35,8 @@ def lister(
         requete = requete.where(Signalement.territoire_code == territoire_code)
     if statut:
         requete = requete.where(Signalement.statut == statut)
+    if type_:
+        requete = requete.where(Signalement.type == type_)
     return list(session.scalars(requete.limit(limite).offset(decalage)))
 
 

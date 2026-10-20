@@ -43,7 +43,9 @@ def lister_signalements(
     session: Session = Depends(session_db),
 ):
     """Réservé au Ministère : suivi opérationnel des signalements."""
-    return service.lister(session, territoire_code, statut, limite, decalage)
+    return service.lister(
+        session, territoire_code=territoire_code, statut=statut, limite=limite, decalage=decalage
+    )
 
 
 @routeur.patch(

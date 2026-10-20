@@ -18,6 +18,8 @@ dependencies = [
     "httpx>=0.27,<1",
     "jinja2>=3.1,<4",
     "python-multipart>=0.0.9",
+    "itsdangerous>=2.1,<3",
+    "tzdata>=2024.1",
 ]
 
 [project.optional-dependencies]
@@ -27,7 +29,10 @@ dev = ["pytest>=8"]
 where = ["src"]
 
 [tool.setuptools.package-data]
-coeur = ["portail/gabarits/*.html", "portail/statique/*", "portail/textes/*.json"]
+coeur = [
+    "portail/gabarits/*.html", "portail/statique/*", "portail/textes/*.json",
+    "tableau_de_bord/gabarits/*.html", "tableau_de_bord/statique/*",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

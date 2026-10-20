@@ -1,3 +1,6 @@
+from datetime import datetime
+
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from coeur.commun import Canal
@@ -31,3 +34,39 @@ def enregistrer(
     session.add(interaction)
     session.commit()
     return interaction
+
+
+def escalades_recentes(
+    session: Session, langue: str | None = None, motif: str | None = None,
+    limite: int = 50, decalage: int = 0,
+) -> list[Interaction]:
+    """Questions restées sans réponse validée, les plus récentes d'abord."""
+    requete = select(Interaction).where(Interaction.resultat == "escalade")
+    if langue:
+        requete = requete.where(Interaction.langue_demandee == langue)
+    if motif:
+        requete = requete.where(Interaction.motif_escalade == motif)
+    requete = requete.order_by(Interaction.horodatage.desc(), Interaction.id.desc())
+    return list(session.scalars(requete.limit(limite).offset(decalage)))
+
+
+def escalades_frequentes(
+    session: Session, depuis: datetime | None = None, limite: int = 20
+) -> list[tuple[str, str, int]]:
+    """Questions escaladées les plus posées : (texte, langue, nombre).
+
+    Regroupe les textes identiques à la casse et aux espaces près : ce sont les
+    premiers candidats à une nouvelle entrée de FAQ ou à une formulation.
+    """
+    texte = func.lower(func.trim(Interaction.texte_masque)).label("texte")
+    requete = select(texte, Interaction.langue_demandee, func.count()).where(
+        Interaction.resultat == "escalade", Interaction.motif_escalade != "demande_humain"
+    )
+    if depuis:
+        requete = requete.where(Interaction.horodatage >= depuis)
+    requete = (
+        requete.group_by(texte, Interaction.langue_demandee)
+        .order_by(func.count().desc(), texte)
+        .limit(limite)
+    )
+    return [(t, langue, n) for t, langue, n in session.execute(requete)]
