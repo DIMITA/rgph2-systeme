@@ -6,7 +6,9 @@ name: Transcription (modèle réel)
 on:
   push:
     paths:
-      - "transcription/**"
+      - "transcription/*.py"
+      - "transcription/Dockerfile"
+      - "transcription/requirements.txt"
       - ".github/workflows/transcription.yml"
   workflow_dispatch:
     inputs:

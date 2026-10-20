@@ -32,8 +32,23 @@ from coeur.connaissances.evaluation import taux_erreur_mots  # noqa: E402
 # Code du cœur → configuration FLEURS.
 CORPUS = {"fr": "fr_fr", "ln": "ln_cd", "sw": "sw_ke"}
 CODES_MODELE = "fr:fra,ln:lin,sw:swh,kg:kng,lua:lua"
-# Autres codes du modèle à vérifier pour le kikongo (kituba, kikongo).
+# Codes à chercher pour le kikongo (koongo, kituba, kikongo, San Salvador) et le tshiluba.
 CODES_A_VERIFIER = ["kng", "ktu", "kon", "kwy", "lua"]
+# Autres versions de MMS : seul leur vocabulaire est téléchargé (quelques Mo), pour savoir
+# si elles couvrent le kikongo ou le tshiluba sans charger 4 Go de poids.
+AUTRES_MODELES = ["facebook/mms-1b-l1107", "facebook/mms-1b-fl102"]
+
+
+def langues_d_un_modele(modele: str) -> set[str] | None:
+    """Codes de langue du vocabulaire d'un modèle MMS, ou None s'il est illisible."""
+    import json
+
+    try:
+        with open(hf_hub_download(modele, "vocab.json"), encoding="utf-8") as fichier:
+            return set(json.load(fichier))
+    except Exception as erreur:  # modèle absent ou format différent : on le dit
+        print(f"{modele} : vocabulaire illisible ({type(erreur).__name__})", flush=True)
+        return None
 
 
 def en_opus(wav: bytes) -> bytes:
@@ -83,11 +98,17 @@ def main() -> int:
     connus = set(moteur.processeur.tokenizer.vocab)
     client = TestClient(serveur.creer_app(moteur, duree_max=60))
 
+    autres = []
+    for modele in AUTRES_MODELES:
+        langues = langues_d_un_modele(modele)
+        autres.append(f"- `{modele}` : " + ("illisible" if langues is None else ", ".join(
+            f"`{c}` {'oui' if c in langues else 'non'}" for c in CODES_A_VERIFIER)))
     lignes = [
         f"# Transcription : {args.modele} sur Google FLEURS (test)", "",
         f"Chargement du modèle : {chargement:.0f} s. Processeur seul (runner GitHub, 4 cœurs).", "",
         "Adaptateurs présents dans le modèle : " + ", ".join(
             f"`{c}` {'oui' if c in connus else 'non'}" for c in CODES_A_VERIFIER), "",
+        "Dans les autres versions de MMS :", *autres, "",
         "| Langue | Enregistrements | WER moyen | WER médian | Durée moy. | Calcul moy. | Temps réel |",
         "| --- | --- | --- | --- | --- | --- | --- |",
     ]
