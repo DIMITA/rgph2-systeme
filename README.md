@@ -116,7 +116,7 @@ Un contenu n'est servi que si **le contenu ET sa traduction** sont au statut `pu
 
 ## Démarrer
 
-Prérequis : Docker (avec Docker Compose v2), Git et Python 3.11 ou plus. Tout ce qu'il faut obtenir par ailleurs (serveur, domaine, opérateurs, Meta…) et comment l'obtenir : [PREREQUIS.md](PREREQUIS.md).
+Prérequis : Docker (avec Docker Compose v2), Git et Python 3.11 ou plus. Tout ce qu'il faut obtenir par ailleurs (serveur, domaine, opérateurs, Meta…) et comment l'obtenir : [PREREQUIS.md](PREREQUIS.md). Ce qui est mesuré sur la compréhension des langues nationales, à la voix et à l'écrit, et la démarche pour le kikongo : [COMPREHENSION.md](COMPREHENSION.md). Capacité mesurée et dimensionnement : [charge/LISEZMOI.md](charge/LISEZMOI.md).
 
 ```bash
 # 1. Préparer le .env : secrets d'infrastructure tirés au hasard, questions pour le reste

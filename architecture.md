@@ -64,6 +64,7 @@ Tout ce que le citoyen demande passe par le même cœur. Le Ministère met à jo
 | Les opérateurs refusent le zero-rating USSD | Repli sur SMS générique ; kiosques et Ambassadeurs deviennent le canal principal dans les zones non connectées |
 | Le chatbot donne une réponse erronée | Base fermée et validée ; escalade automatique vers le centre d'écoute quand la confiance est faible |
 | La voix en langues locales est mal reconnue. Mesure du 20 oct. 2026 (modèle MMS, phrases lues) : environ 1 mot sur 6 en erreur en lingala et en kiswahili, comme en français ; **kikongo et tshiluba absents de toutes les versions de MMS** | Confirmation du sujet par le citoyen avant toute réponse ; chaque langue ouverte seulement après évaluation sur de vrais messages (taux de bonnes réponses, de refus) ; repli : rappel par un conseiller, seule voie pour le kikongo et le tshiluba tant qu'un autre modèle ouvert ne les couvre pas (piste : Omnilingual ASR). Réponses en audio enregistré par des locuteurs natifs, jamais en voix de synthèse |
+| Les questions écrites en langues nationales ne sont comprises que si une formulation proche a été saisie dans le CMS (moteur lexical) | Mesure du 20 oct. 2026 (FLORES-200, voir `COMPREHENSION.md`) : des modèles multilingues ouverts retrouvent la phrase française correspondante à 83-100 % en lingala, kikongo et tshiluba (multilingual-e5, MIT), à 99-100 % pour SONAR (licence non commerciale). Démarche : moteur sémantique ajouté au moteur lexical, seuil calibré sur de vraies questions, ouverture langue par langue |
 | Kiosques volés ou vandalisés | Assurance, lieux sécurisés (écoles, mairies), remplacement rapide via la contingence |
 | L'infrastructure locale est insuffisante pour l'hébergement | Hébergement redondant, plan de continuité, arbitrage en cadrage |
 | L'équipe du Ministère est insuffisamment formée | Un seul bloc à maintenir, documentation exhaustive, mentorat de six mois après le dénombrement |
@@ -75,6 +76,7 @@ Tout ce que le citoyen demande passe par le même cœur. Le Ministère met à jo
 - Pour quelles langues enregistrer l'audio d'abord ?
 - Serveur de calcul (GPU) hébergé en RDC pour la transcription, ou service externe avec arbitrage sur la localisation des données ?
 - Quel kikongo : kikongo ya leta (kituba) ou kikongo ? Le modèle et les traductions en dépendent.
+- Licences non commerciales (MMS, SONAR) : un service public d'information sans contrepartie peut-il les utiliser ? Avis juridique à obtenir avant la mise en service.
 - Qui fournit les messages d'évaluation (questions réelles, écrites et vocales, dans chaque langue) : Ambassadeurs, centre d'écoute, séances d'enregistrement ?
 - Quelles briques open source retenir après les prototypes ?
 - Quel niveau de disponibilité exiger pendant le pic de mai-juin 2027 ?
