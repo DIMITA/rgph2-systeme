@@ -78,6 +78,7 @@ Chaque module est un dossier de `src/coeur/` qui contient `modeles.py` (tables),
 | Module | Rôle |
 | --- | --- |
 | `connaissances/` | Lit les contenus publiés et choisit la bonne réponse (`moteur.py`), ou décide d'escalader ; évaluation langue par langue, à l'écrit et à la voix (`evaluation.py`) |
+| `reglages/` | Réglages du cœur gardés en base, chiffrés avec `CLE_MAITRE` ; assistant d'initialisation (`python -m coeur.reglages`) |
 | `comprehension/` | Voix → texte : transcripteur interchangeable (aucun, service du projet, simulation), langues ouvertes une à une |
 | `interactions/` | Journal de chaque question (sans nom ni numéro en clair) |
 | `signalements/` | Signalements localisés envoyés par les canaux, et leur suivi par le Ministère |
@@ -115,15 +116,19 @@ Un contenu n'est servi que si **le contenu ET sa traduction** sont au statut `pu
 
 ## Démarrer
 
-Prérequis : Docker (avec Docker Compose v2) et Git. Python 3.11 ou plus est nécessaire seulement pour lancer les tests hors Docker.
+Prérequis : Docker (avec Docker Compose v2), Git et Python 3.11 ou plus. Tout ce qu'il faut obtenir par ailleurs (serveur, domaine, opérateurs, Meta…) et comment l'obtenir : [PREREQUIS.md](PREREQUIS.md).
 
 ```bash
-# 1. Créer le fichier de secrets
-cp .env.exemple .env
-#    → remplacer TOUTES les valeurs « changer-... »
-#      python -c "import secrets; print(secrets.token_urlsafe(32))"
+# 1. Préparer le .env : secrets d'infrastructure tirés au hasard, questions pour le reste
+#    (laisser vide ce qu'on n'a pas encore). Ranger CLE_MAITRE dans un coffre-fort.
+python outils/preparer_env.py
 
-# 2. Démarrer PostgreSQL, les migrations, l'API, Directus et sa configuration
+# 2. Créer la base, puis saisir les réglages du cœur (gardés CHIFFRÉS en base) :
+#    pepper et clés tirés au hasard, numéro vert, code USSD, WhatsApp, transcription…
+docker compose up -d postgres migrations
+docker compose run --rm migrations python -m coeur.reglages initialiser
+
+# 3. Démarrer le reste : API, Directus et sa configuration, téléphonie, SMS, tâches
 docker compose up -d
 
 # 3. Importer le référentiel des territoires (voir donnees/LISEZMOI.md)
@@ -520,7 +525,21 @@ docker compose up directus-config
 python outils/verifier_pile.py
 ```
 
-### Réglages (`.env`)
+### Réglages
+
+Deux endroits, selon qui lit le réglage :
+
+- **`.env`** (préparé par `outils/preparer_env.py`) : ce qu'il faut avant d'atteindre la base (mots de passe PostgreSQL, `CLE_MAITRE`), et ce que lisent aussi Directus, Asterisk ou Kannel (`CLES_API`, `CLE_API_CENTRE_ECOUTE`, `SECRET_POSTES`, liaisons des opérateurs, `KANNEL_MDP`…).
+- **En base, chiffré avec `CLE_MAITRE`** (table `coeur.reglages`) : tout ce que seul le cœur lit. Le nom du réglage est celui de la variable, en minuscules :
+
+```bash
+docker compose run --rm migrations python -m coeur.reglages lister                 # secrets masqués
+docker compose run --rm migrations python -m coeur.reglages definir numero_vert "0800 000 000"
+docker compose run --rm migrations python -m coeur.reglages definir whatsapp_jeton  # saisie masquée
+docker compose restart api taches                                                  # prise en compte
+```
+
+Une variable d'environnement du même nom l'emporte sur la base (tests, dépannage) ; `docker-compose.yml` n'en passe volontairement aucune pour ces réglages. Une sauvegarde de la base ne révèle aucun secret sans `CLE_MAITRE` : la ranger dans un coffre-fort, **à part** des sauvegardes. Pour la changer : `docker compose run --rm -e CLE_MAITRE_NOUVELLE=… migrations python -m coeur.reglages changer-cle-maitre`, puis mettre la nouvelle dans `.env`.
 
 | Variable | Défaut | Rôle |
 | --- | --- | --- |
@@ -581,7 +600,7 @@ python outils/verifier_pile.py
 ### Avant la mise en production
 
 - [ ] Remplacer `donnees/territoires.csv` par le référentiel officiel de l'INS.
-- [ ] Générer des secrets forts et uniques, et ranger `PEPPER_TELEPHONE` dans un coffre-fort.
+- [ ] Préparer le `.env` avec `outils/preparer_env.py`, saisir les réglages avec `python -m coeur.reglages initialiser`, et ranger `CLE_MAITRE` dans un coffre-fort, à part des sauvegardes de la base. Liste de ce qu'il faut obtenir : [PREREQUIS.md](PREREQUIS.md).
 - [ ] Placer l'API et Directus derrière un proxy HTTPS (Nginx, Caddy…), renseigner `FORWARDED_ALLOW_IPS` et passer `SESSION_HTTPS_SEULEMENT=true`. Ne pas exposer PostgreSQL.
 - [ ] Renseigner `NUMERO_VERT` dès qu'il est attribué. Faire relire `ln.json` et traduire l'interface en kiswahili, kikongo et tshiluba.
 - [ ] Mettre en place des sauvegardes PostgreSQL chiffrées (`pg_dump`) **et tester leur restauration**.

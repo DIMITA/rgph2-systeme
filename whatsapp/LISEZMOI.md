@@ -22,11 +22,11 @@ citoyen ──► WhatsApp (Meta) ──POST signé──► /v1/whatsapp/webhoo
 1. **Meta Business Suite** : créer le portefeuille d'entreprise de l'INS et faire **vérifier l'entreprise** (documents officiels).
 2. **Compte WhatsApp Business** et **numéro dédié**. Ce numéro ne doit pas déjà être utilisé dans l'application WhatsApp.
 3. **Application Meta** (developers.facebook.com) avec le produit WhatsApp. Il faut relever :
-   - l'identifiant du numéro (*Phone number ID*), à mettre dans `WHATSAPP_NUMERO_ID` ;
-   - le **secret de l'application**, à mettre dans `WHATSAPP_SECRET_APP`.
-4. **Jeton permanent** : créer un *utilisateur système* avec la permission `whatsapp_business_messaging`. Son jeton va dans `WHATSAPP_JETON`. Le jeton temporaire de la console expire en 24 h.
-5. **Webhook** : l'adresse est `https://<serveur>/v1/whatsapp/webhook`, en HTTPS obligatoire, avec un certificat valide. Le jeton de vérification est celui de `WHATSAPP_JETON_VERIFICATION`. S'abonner au champ **`messages`**.
-6. Passer `WHATSAPP_PASSERELLE=meta`, puis lancer `docker compose up -d api`.
+   - l'identifiant du numéro (*Phone number ID*), réglage `whatsapp_numero_id` ;
+   - le **secret de l'application**, réglage `whatsapp_secret_app`.
+4. **Jeton permanent** : créer un *utilisateur système* avec la permission `whatsapp_business_messaging`. Son jeton est le réglage `whatsapp_jeton`. Le jeton temporaire de la console expire en 24 h.
+5. **Webhook** : l'adresse est `https://<serveur>/v1/whatsapp/webhook`, en HTTPS obligatoire, avec un certificat valide. Le jeton de vérification est le réglage `whatsapp_jeton_verification`, tiré au hasard à l'initialisation : l'afficher avec `docker compose run --rm migrations python -m coeur.reglages afficher whatsapp_jeton_verification` et le recopier chez Meta. S'abonner au champ **`messages`**.
+6. Saisir ces valeurs, chiffrées en base, avec l'assistant (`docker compose run --rm migrations python -m coeur.reglages initialiser`, passerelle « meta ») ou une à une (`docker compose run --rm migrations python -m coeur.reglages definir whatsapp_jeton`), puis `docker compose restart api taches`.
 
 ### Profil du compte (charte graphique du Gouvernement)
 

@@ -45,7 +45,9 @@ def sql(requete: str) -> str:
 
 
 def env_api(nom: str) -> str:
-    return compose("exec", "-T", "api", "printenv", nom).strip()
+    """Réglage effectif de l'API (environnement ou réglages chiffrés en base)."""
+    return compose("exec", "-T", "api", "python", "-c",
+                   f"from coeur.config import parametres; print(parametres().{nom.lower()})").strip()
 
 
 class Citoyen:

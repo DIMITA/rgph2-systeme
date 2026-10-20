@@ -93,7 +93,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: docker-compose.yml valide
-        run: cp .env.exemple .env && docker compose config --quiet
+        run: python outils/preparer_env.py --non-interactif && docker compose config --quiet
       - run: docker build --tag rgph2-coeur:ci .
       - run: docker build --tag rgph2-asterisk:ci asterisk
       - run: docker build --tag rgph2-sms:ci sms

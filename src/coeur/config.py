@@ -1,16 +1,32 @@
-"""Paramètres de l'application, lus dans les variables d'environnement (ou le fichier .env)."""
+"""Paramètres de l'application.
+
+Lus, par ordre de priorité : variables d'environnement, fichier .env, puis réglages
+chiffrés en base (`coeur.reglages`, saisis à l'initialisation). Seul ce qu'il faut
+pour atteindre la base, ou ce que d'autres conteneurs lisent aussi, reste dans .env.
+"""
 
 from functools import lru_cache
 from typing import Literal
 
 from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 from coeur.commun import Canal
+from coeur.reglages.source import SourceReglages
 
 
 class Parametres(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    @classmethod
+    def settings_customise_sources(cls, settings_cls: type[BaseSettings],
+                                   init_settings: PydanticBaseSettingsSource,
+                                   env_settings: PydanticBaseSettingsSource,
+                                   dotenv_settings: PydanticBaseSettingsSource,
+                                   file_secret_settings: PydanticBaseSettingsSource):
+        # Après l'environnement et le .env : ils l'emportent (tests, dépannage).
+        return (init_settings, env_settings, dotenv_settings, SourceReglages(settings_cls),
+                file_secret_settings)
 
     environnement: str = "developpement"
 

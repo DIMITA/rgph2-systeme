@@ -13,7 +13,15 @@ docker compose --profile transcription up -d transcription
 docker compose exec transcription python -c "import urllib.request as u; print(u.urlopen('http://localhost:9000/sante').read())"
 ```
 
-Puis, dans `.env` : `TRANSCRIPTION=service`, et `TRANSCRIPTION_LANGUES` avec les langues **déjà évaluées** (voir plus bas), par exemple `sw,ln`. Relancer l'API : `docker compose up -d api`. Une langue absente de cette liste n'est pas transcrite : le citoyen se voit proposer un rappel par un conseiller.
+Puis régler le cœur (réglages chiffrés en base) : `transcription` à `service`, et `transcription_langues` avec les langues **déjà évaluées** (voir plus bas), par exemple `sw,ln` :
+
+```bash
+docker compose run --rm migrations python -m coeur.reglages definir transcription service
+docker compose run --rm migrations python -m coeur.reglages definir transcription_langues sw,ln
+docker compose restart api taches
+```
+
+Le modèle et les codes de langue du service se règlent dans `.env` (`TRANSCRIPTION_MODELE`, `TRANSCRIPTION_CODES`). Une langue absente de cette liste n'est pas transcrite : le citoyen se voit proposer un rappel par un conseiller.
 
 Au premier démarrage, le modèle est téléchargé depuis Hugging Face (environ 4 Go), puis gardé dans le volume `modeles_transcription`. **Si le serveur de production n'a pas accès à Internet**, télécharger le modèle ailleurs (`huggingface-cli download facebook/mms-1b-all`) et copier le dossier du cache dans ce volume.
 
@@ -57,7 +65,7 @@ Sur processeur, la transcription d'un message de 30 secondes prend plusieurs sec
    python -m coeur.connaissances.evaluation vocaux_ln.csv --seuils 0.4,0.5,0.6 --details
    ```
 3. Décider avec le BCR sur les chiffres : part de bons sujets, part de sujets faux (le citoyen dira « Non »), taux d'erreur de mots. Les sujets faux ne donnent jamais de fausse information, puisqu'il y a confirmation, mais trop de « Non » découragent le citoyen.
-4. Ajouter la langue à `TRANSCRIPTION_LANGUES`. Après l'ouverture, suivre au tableau de bord (section WhatsApp) les messages vocaux confirmés et refusés.
+4. Ajouter la langue au réglage `transcription_langues` (`docker compose run --rm migrations python -m coeur.reglages definir transcription_langues sw,ln,lua`). Après l'ouverture, suivre au tableau de bord (section WhatsApp) les messages vocaux confirmés et refusés.
 
 ## Protection des données
 
