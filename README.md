@@ -569,7 +569,10 @@ python -m venv .venv && .venv/Scripts/activate      # Linux/Mac : source .venv/b
 pip install -e ".[dev]"
 docker compose -f docker-compose.test.yml up -d     # base jetable, port 5433
 pytest
+ruff check src tests outils migrations               # erreurs de code, imports inutiles
 ```
+
+**Intégration continue** (`.github/workflows/ci.yml`), à chaque push et pull request : ruff, tests unitaires et d'intégration contre PostgreSQL en Python 3.11 et 3.12, `alembic check` (modèles et migrations alignés), construction des trois images Docker et validation de `docker-compose.yml`. Les vérifications sur la pile complète (`outils/verifier_*.py`) restent manuelles.
 
 - `tests/unitaires/` : moteur de recherche, confidentialité, limiteur de débit, alphabet GSM, mots-clés SMS, longueur des écrans USSD dans chaque langue. Ces tests ne demandent pas de base.
 - `tests/integration/` : API de bout en bout contre PostgreSQL, migrations, droits des rôles. Chaque lancement repart d'une base vide et vérifie au passage que les migrations s'appliquent et s'annulent.

@@ -1,0 +1,93 @@
+# Intégration continue : à chaque push et à chaque pull request.
+#   - qualite : ruff (erreurs de code, imports inutiles, pièges courants) ;
+#   - tests   : tests unitaires et d'intégration contre PostgreSQL, en Python 3.11
+#               (version minimale) et 3.12 (celle de l'image Docker), puis contrôle
+#               qu'aucun écart ne subsiste entre les modèles et les migrations ;
+#   - images  : construction des trois images et validation de docker-compose.yml.
+# Les vérifications sur la pile complète (outils/verifier_*.py) demandent Directus,
+# Asterisk et Kannel démarrés : elles restent manuelles.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualite:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install "ruff==0.17.1"
+      - run: ruff check --output-format github src tests outils migrations
+
+  tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    services:
+      # Mêmes réglages que docker-compose.test.yml (mots de passe de test uniquement).
+      postgres:
+        image: postgres:16.4-alpine
+        env:
+          POSTGRES_DB: rgph_test
+          POSTGRES_USER: rgph_admin
+          POSTGRES_PASSWORD: test_admin
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U rgph_admin -d rgph_test"
+          --health-interval 2s --health-retries 30
+    env:
+      PGHOST: localhost
+      PGPORT: "5433"
+      PGPASSWORD: test_admin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      # Le conteneur de service ne voit pas le dépôt : on crée les rôles nous-mêmes,
+      # avec le script que PostgreSQL exécute en production.
+      - name: Rôles de la base
+        run: sh db/init/01-roles.sh
+        env:
+          POSTGRES_USER: rgph_admin
+          POSTGRES_DB: rgph_test
+          RGPH_API_MDP: test_api
+          RGPH_DIRECTUS_MDP: test_directus
+      - run: pip install -e ".[dev]"
+      # -W error::SyntaxWarning : une séquence d'échappement invalide casse la CI
+      # avant de devenir une erreur dans une future version de Python.
+      - run: python -W error::SyntaxWarning -m compileall -q src outils migrations
+      - run: pytest
+      - name: Modèles et migrations alignés
+        run: alembic check
+        env:
+          DATABASE_URL: postgresql+psycopg://rgph_admin:test_admin@localhost:5433/rgph_test
+
+  images:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: docker-compose.yml valide
+        run: cp .env.exemple .env && docker compose config --quiet
+      - run: docker build --tag rgph2-coeur:ci .
+      - run: docker build --tag rgph2-asterisk:ci asterisk
+      - run: docker build --tag rgph2-sms:ci sms

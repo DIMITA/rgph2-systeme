@@ -11,7 +11,6 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
-from coeur.badges.service import normaliser_badge
 from coeur.config import Parametres
 from coeur.confidentialite.service import masquer_donnees_sensibles
 from coeur.connaissances import service as connaissances

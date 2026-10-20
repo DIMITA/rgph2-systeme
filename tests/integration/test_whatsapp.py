@@ -15,7 +15,7 @@ from coeur.connaissances.modeles import Traduction
 from coeur.interactions.modeles import Interaction
 from coeur.mobile.modeles import PreferenceLangue
 from coeur.signalements.modeles import Signalement
-from coeur.whatsapp.messages import Boutons, Liste, Media, Texte
+from coeur.whatsapp.messages import Boutons, Liste, Texte
 from coeur.whatsapp.modeles import Conversation, MessageWhatsapp
 from coeur.whatsapp.passerelle import passerelle
 

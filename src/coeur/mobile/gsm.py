@@ -15,7 +15,7 @@ _GSM = set(
     "¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà"
 )
 # Caractères de l'extension (comptent double).
-_EXTENSION = set("^{}\[~]|€")
+_EXTENSION = set("^{}\\[~]|€")
 _REMPLACEMENTS = {
     "«": '"', "»": '"', "“": '"', "”": '"', "’": "'", "‘": "'", "…": "...",
     "–": "-", "—": "-", " ": " ", " ": " ", "œ": "oe", "Œ": "OE",

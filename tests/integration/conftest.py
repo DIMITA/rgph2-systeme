@@ -84,7 +84,7 @@ def exemples(session_admin) -> dict[str, int]:
     from coeur.connaissances.exemples import EXEMPLES, charger_exemples
 
     ids = charger_exemples(session_admin)
-    return {ex["cle"]: i for ex, i in zip(EXEMPLES, ids)}
+    return {ex["cle"]: i for ex, i in zip(EXEMPLES, ids, strict=True)}
 
 
 @pytest.fixture
