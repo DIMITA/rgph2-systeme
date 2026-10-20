@@ -1,25 +1,47 @@
 <!doctype html>
+{% import "_charte.html" as charte %}
 <html lang="{{ langue }}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block titre %}{{ t.titre }}{% endblock %}</title>
+{{ charte.tete() }}
 <link rel="stylesheet" href="/statique/portail.css">
 <script src="/statique/portail.js" defer></script>
 </head>
 <body>
-<header>
-  <a class="marque" href="/{{ langue }}">{{ t.titre_court }}</a>
-  <nav aria-label="{{ t.langue }}">
-    {% for l in langues %}<a href="/{{ l.code }}"{% if l.code == langue %} aria-current="true"{% endif %} lang="{{ l.code }}">{{ l.nom }}</a>{% endfor %}
+{#- Charte p. 59-60 : bandeau blanc et armoiries en couleur sur la page d'accueil,
+    bandeau bleu et marque en blanc sur les autres pages. -#}
+<header class="bandeau{% if not accueil %} bandeau-bleu{% endif %}">
+  <div class="bandeau-int">
+    {{ charte.marque("/" ~ langue, blanc=not accueil, grande=accueil) }}
+    <nav aria-label="{{ t.menu }}">
+      <a href="/{{ langue }}"{% if accueil %} aria-current="page"{% endif %}>{{ t.accueil }}</a>
+      <a href="/{{ langue }}/faq"{% if page == "faq" %} aria-current="page"{% endif %}>{{ t.questions_frequentes }}</a>
+      <a href="/{{ langue }}/signaler"{% if page == "signaler" %} aria-current="page"{% endif %}>{{ t.signaler }}</a>
+      {% if numero_vert %}<a class="appel" href="tel:{{ numero_vert | replace(' ', '') }}">{{ t.numero_vert | replace("{numero}", numero_vert) }}</a>{% endif %}
+    </nav>
+  </div>
+  <nav class="langues" aria-label="{{ t.langue }}">
+    <div class="bandeau-int">
+      {% for l in langues %}<a href="/{{ l.code }}"{% if l.code == langue %} aria-current="true"{% endif %} lang="{{ l.code }}">{{ l.nom }}</a>{% endfor %}
+    </div>
   </nav>
 </header>
 <main>
 {% block contenu %}{% endblock %}
 </main>
-<footer>
+{% call charte.pied("/" ~ langue) %}
+  <div>
+    <h2>{{ t.liens_utiles }}</h2>
+    <ul>
+      <li><a href="/{{ langue }}/faq">{{ t.questions_frequentes }}</a></li>
+      <li><a href="/{{ langue }}/signaler">{{ t.signaler }}</a></li>
+      <li><a href="{{ SITE_OFFICIEL }}">{{ t.site_officiel }}</a></li>
+    </ul>
+  </div>
   {% if numero_vert %}<p>{{ t.numero_vert | replace("{numero}", numero_vert) }}</p>{% endif %}
-  <p><a href="/{{ langue }}/faq">{{ t.questions_frequentes }}</a> · <a href="/{{ langue }}/signaler">{{ t.signaler }}</a></p>
-</footer>
+  <p class="mentions">{{ t.mentions }}</p>
+{% endcall %}
 </body>
 </html>

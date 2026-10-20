@@ -36,6 +36,7 @@ coeur = [
     "portail/gabarits/*.html", "portail/statique/*", "portail/textes/*.json",
     "tableau_de_bord/gabarits/*.html", "tableau_de_bord/statique/*",
     "mobile/textes/*.json", "simulateur/gabarits/*.html",
+    "charte/gabarits/*.html", "charte/statique/*", "charte/sources/*",
 ]
 
 [tool.pytest.ini_options]

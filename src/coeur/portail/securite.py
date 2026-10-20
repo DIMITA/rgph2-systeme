@@ -3,7 +3,7 @@
 from fastapi import Request
 
 # La documentation de l'API (Swagger) charge ses scripts ailleurs : on ne la bride pas.
-CHEMINS_EXCLUS = ("/docs", "/redoc", "/openapi.json")
+CHEMINS_EXCLUS = ("/docs", "/openapi.json")
 
 POLITIQUE = (
     "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
@@ -23,4 +23,7 @@ async def entetes_securite(request: Request, suivant):
     if chemin.startswith("/statique/"):
         # Économise la bande passante en 2G : feuille de style et script gardés une journée.
         reponse.headers["Cache-Control"] = "public, max-age=86400"
+    elif chemin.startswith("/charte/"):
+        # Police et armoiries ne changent presque jamais : un mois en cache.
+        reponse.headers["Cache-Control"] = "public, max-age=2592000"
     return reponse

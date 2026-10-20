@@ -10,9 +10,9 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse, Response
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from coeur import charte
 from coeur.base import session_db
 from coeur.config import Parametres, parametres
 from coeur.centre_appels.service import statistiques_appels
@@ -36,7 +36,7 @@ from coeur.tableau_de_bord.auth import (
 from coeur.territoires.service import lister as lister_territoires
 
 routeur = APIRouter(prefix=CHEMIN, include_in_schema=False)
-gabarits = Jinja2Templates(directory=Path(__file__).parent / "gabarits")
+gabarits = charte.gabarits(Path(__file__).parent / "gabarits")
 
 
 def heure_locale(moment: datetime) -> str:
@@ -90,7 +90,8 @@ def _page(request: Request, gabarit: str, utilisateur: Utilisateur | None = None
         request,
         gabarit,
         {"utilisateur": utilisateur, "espaces": espaces(utilisateur.role) if utilisateur else [],
-         "seuil": parametres().seuil_secret_statistique, **contexte},
+         "seuil": parametres().seuil_secret_statistique,
+         "rubrique": gabarit.removesuffix(".html"), **contexte},
         status_code=statut,
     )
     # Données de pilotage : jamais gardées dans un cache (navigateur ou proxy).

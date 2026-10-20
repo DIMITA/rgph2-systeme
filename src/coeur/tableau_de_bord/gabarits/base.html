@@ -1,29 +1,35 @@
 <!doctype html>
+{% import "_charte.html" as charte %}
 <html lang="fr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>{% block titre %}Tableau de bord{% endblock %} — RGPH-2</title>
+{{ charte.tete() }}
 <link rel="stylesheet" href="/tableau-de-bord/statique/tableau.css">
 </head>
 <body>
-<header>
-  <a class="marque" href="/tableau-de-bord">RGPH-2 · Tableau de bord</a>
-  {% if utilisateur %}
-  <nav>
-    {% if "pilotage" in espaces %}
-    <a href="/tableau-de-bord">Synthèse</a>
-    <a href="/tableau-de-bord/escalades">Questions sans réponse</a>
-    <a href="/tableau-de-bord/signalements">Signalements</a>
+{#- Espaces internes : bandeau bleu et marque en blanc (charte, p. 60). -#}
+<header class="bandeau bandeau-bleu">
+  <div class="bandeau-int">
+    {{ charte.marque("/tableau-de-bord", blanc=true) }}
+    <p class="espace">RGPH-2<span>{% block espace %}Espace du Ministère{% endblock %}</span></p>
+    {% if utilisateur %}
+    <nav aria-label="Espaces">
+      {% if "pilotage" in espaces %}
+      <a href="/tableau-de-bord"{% if rubrique == "synthese" %} aria-current="page"{% endif %}>Synthèse</a>
+      <a href="/tableau-de-bord/escalades"{% if rubrique == "escalades" %} aria-current="page"{% endif %}>Questions sans réponse</a>
+      <a href="/tableau-de-bord/signalements"{% if rubrique == "signalements" %} aria-current="page"{% endif %}>Signalements</a>
+      {% endif %}
+      {% if "agents" in espaces %}<a href="/tableau-de-bord/agent"{% if rubrique == "agent" %} aria-current="page"{% endif %}>Console agent</a>{% endif %}
+      {% if "qualite" in espaces %}<a href="/tableau-de-bord/qualite"{% if rubrique == "qualite" %} aria-current="page"{% endif %}>Écoute qualité</a>{% endif %}
+    </nav>
+    <form class="session" method="post" action="/tableau-de-bord/deconnexion">
+      <span>{{ utilisateur.email }}</span> <button type="submit" class="secondaire">Se déconnecter</button>
+    </form>
     {% endif %}
-    {% if "agents" in espaces %}<a href="/tableau-de-bord/agent">Console agent</a>{% endif %}
-    {% if "qualite" in espaces %}<a href="/tableau-de-bord/qualite">Écoute qualité</a>{% endif %}
-  </nav>
-  <form class="session" method="post" action="/tableau-de-bord/deconnexion">
-    <span>{{ utilisateur.email }}</span> <button type="submit">Se déconnecter</button>
-  </form>
-  {% endif %}
+  </div>
 </header>
 <main>
 {% block contenu %}{% endblock %}

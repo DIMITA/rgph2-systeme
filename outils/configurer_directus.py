@@ -206,9 +206,18 @@ class Directus:
         return trouves[0] if trouves else None
 
 
+# Noms affichés dans l'interface de Directus.
+NOMS = {"contenus": "Contenus", "contenus_traductions": "Traductions",
+        "formulations": "Formulations", "langues": "Langues",
+        "calendrier_passages": "Calendrier de passage"}
+
+
 def configurer_collections(d: Directus) -> None:
     for collection, meta in COLLECTIONS.items():
-        d.appel("PATCH", f"/collections/{collection}", json={"meta": meta})
+        traductions = [{"language": "fr-FR", "translation": NOMS[collection],
+                        "singular": NOMS[collection], "plural": NOMS[collection]}]
+        d.appel("PATCH", f"/collections/{collection}",
+                json={"meta": {**meta, "translations": traductions}})
     for (collection, champ), meta in CHAMPS.items():
         d.appel("PATCH", f"/fields/{collection}/{champ}", json={"meta": meta})
     existants = {f["field"] for f in d.appel("GET", "/fields/contenus")}
@@ -281,6 +290,80 @@ def configurer_roles(d: Directus) -> None:
         print(f"Rôle « {nom} » configuré ({len(droits())} droits).")
 
 
+# --- Charte graphique du Gouvernement ------------------------------------------------------
+
+def dossier_charte() -> Path:
+    """Ressources de la charte : depuis le paquet installé, sinon depuis le dépôt."""
+    try:
+        from coeur.charte import STATIQUE
+        return STATIQUE
+    except ImportError:
+        return Path(__file__).resolve().parents[1] / "src" / "coeur" / "charte" / "statique"
+
+
+def deposer(d: Directus, nom: str, type_mime: str) -> str:
+    """Dépose (ou remplace) un fichier de la charte dans Directus ; renvoie son identifiant."""
+    contenu = (dossier_charte() / nom).read_bytes()
+    existant = d.premier("/files", "filename_download", nom)
+    fichiers = {"file": (nom, contenu, type_mime)}
+    donnees = {"title": f"Charte graphique — {nom}"}
+    if existant:
+        d.appel("PATCH", f"/files/{existant['id']}", data=donnees, files=fichiers)
+        return existant["id"]
+    return d.appel("POST", "/files", data=donnees, files=fichiers)["id"]
+
+
+POLICE = '"Cooper Hewitt", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif'
+
+
+def configurer_charte(d: Directus) -> None:
+    """Directus aux couleurs de la Charte graphique du Gouvernement de la RDC.
+
+    Bleu institutionnel, armoiries en blanc sur fond bleu (les armoiries en couleur
+    sont interdites sur fond sombre), bloc-marque sur la page de connexion, police
+    Cooper Hewitt servie par Directus lui-même.
+    """
+    logo = deposer(d, "armoiries-blanc-64@2x.png", "image/png")
+    marque = deposer(d, "bloc-marque-blanc.png", "image/png")
+    icone = deposer(d, "favicon.png", "image/png")
+    fond = deposer(d, "fond-connexion.png", "image/png")
+    medium = deposer(d, "cooper-hewitt-medium.woff2", "font/woff2")
+    semibold = deposer(d, "cooper-hewitt-semibold.woff2", "font/woff2")
+    d.appel("PATCH", "/settings", json={
+        "project_name": "RGPH-2",
+        "project_descriptor": "Base de connaissances · INS · BCR",
+        "project_color": "#17418a",
+        "project_logo": logo,
+        "public_foreground": marque,
+        "public_background": fond,
+        "public_favicon": icone,
+        # Interface en français pour les équipes du Ministère (modifiable par compte).
+        "default_language": "fr-FR",
+        "public_note": "Espace de rédaction et de validation des contenus du RGPH-2. "
+                       "Institut national de la statistique, Bureau central du recensement.",
+        "default_appearance": "light",
+        "theme_light_overrides": {
+            "primary": "#17418a",
+            "fonts": {"display": {"fontFamily": POLICE, "fontWeight": "600"},
+                      "sans": {"fontFamily": POLICE}},
+            # Barre des modules en bleu institutionnel, comme les bandeaux des sites.
+            "navigation": {"modules": {
+                "background": "#17418a",
+                "button": {"foreground": "rgba(255, 255, 255, 0.75)",
+                           "foregroundHover": "#ffffff"},
+            }},
+        },
+        "custom_css": (
+            "/* Charte graphique du Gouvernement de la RDC (outils/configurer_directus.py) */\n"
+            '@font-face{font-family:"Cooper Hewitt";font-weight:500;font-display:swap;'
+            f'src:url(/assets/{medium}) format("woff2")}}\n'
+            '@font-face{font-family:"Cooper Hewitt";font-weight:600 700;font-display:swap;'
+            f'src:url(/assets/{semibold}) format("woff2")}}\n'
+        ),
+    })
+    print("Charte graphique appliquée (couleurs, armoiries, police).")
+
+
 def main() -> None:
     d = Directus(
         os.environ.get("DIRECTUS_URL", "http://localhost:8055"),
@@ -291,6 +374,7 @@ def main() -> None:
     print("Collections configurées.")
     configurer_calendrier(d, os.environ.get("API_URL", "http://localhost:8000"))
     configurer_roles(d)
+    configurer_charte(d)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,25 @@
+<!doctype html>
+{% import "_charte.html" as charte %}
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>{{ titre }} — RGPH-2</title>
+{{ charte.tete() }}
+</head>
+<body>
+<header class="bandeau bandeau-bleu">
+  <div class="bandeau-int">{{ charte.marque("/", blanc=true) }}</div>
+</header>
+<main class="page-erreur">
+  <p class="code-erreur">{{ statut }}</p>
+  <h1 class="titre-page filet">{{ titre }}</h1>
+  <p>{{ explication }}</p>
+  <p><a class="bouton" href="/">Retour à l'accueil</a></p>
+</main>
+{% call charte.pied("/") %}
+  <p><a href="{{ SITE_OFFICIEL }}">Site officiel du RGPH-2</a></p>
+{% endcall %}
+</body>
+</html>

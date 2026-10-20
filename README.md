@@ -7,7 +7,8 @@ Ce dépôt contient le **cœur commun** auquel se brancheront les six canaux du 
 - étape 3 : le **tableau de bord du Ministère** ;
 - étape 4a : le **centre d'appels** (numéro vert sur IP : serveur vocal, file d'attente, rappels, enregistrements) ;
 - étape 4b : la **console des agents** dans le navigateur et l'**écoute qualité** ;
-- étape 5 : l'**USSD et les SMS** (menus, mots-clés, calendrier de passage, vérification des badges), avec la passerelle SMS Kannel.
+- étape 5 : l'**USSD et les SMS** (menus, mots-clés, calendrier de passage, vérification des badges), avec la passerelle SMS Kannel ;
+- toutes les interfaces aux couleurs de la **Charte graphique du Gouvernement** (Marque État Congolais).
 
 Le cœur fait trois choses :
 
@@ -29,6 +30,7 @@ Les contenus sont rédigés et validés par le Ministère dans **Directus** (le 
 - [Tableau de bord du Ministère](#tableau-de-bord-du-ministère)
 - [Centre d'appels (numéro vert)](#centre-dappels-numéro-vert)
 - [USSD et SMS](#ussd-et-sms)
+- [Charte graphique du Gouvernement](#charte-graphique-du-gouvernement)
 - [Protection des données](#protection-des-données)
 - [Exploitation](#exploitation)
 - [Tests](#tests)
@@ -86,6 +88,7 @@ Chaque module est un dossier de `src/coeur/` qui contient `modeles.py` (tables),
 | `ussd/` | Menus USSD (`moteur.py`) rejoués à partir de la saisie cumulée |
 | `sms/` | Mots-clés et questions par SMS (`analyse.py`), envoi par Kannel (`passerelle.py`) avec plafond journalier |
 | `simulateur/` | Page de test imitant un téléphone basique (désactivée par défaut, jamais en production) |
+| `charte/` | Charte graphique du Gouvernement : feuille de style, bloc-marque, police, armoiries, pages d'erreur, documentation de l'API |
 
 Fichiers transverses : `main.py` (assemblage), `config.py` (réglages), `securite.py` (clés d'API), `base.py` (base de données), `commun.py` (types partagés), `limiteur.py` (limite de débit), `journalisation.py` (journal d'accès sans paramètres d'adresse).
 
@@ -248,8 +251,8 @@ Le portail est le canal « web ». Il fait partie du cœur et appelle directemen
 **Conçu pour la 2G et les téléphones modestes :**
 
 - Tout fonctionne avec de simples formulaires HTML. `portail.js` est une amélioration facultative : la conversation s'affiche sans recharger la page.
-- Aucune ressource externe (ni police, ni CDN, ni outil de mesure d'audience). Les pages sont compressées et la feuille de style et le script restent en cache une journée.
-- Le premier chargement complet pèse environ **3 Ko compressés**. Un test (`test_page_legere_pour_la_2g`) empêche la page de dépasser 30 Ko non compressés.
+- Aucune ressource externe (ni CDN, ni outil de mesure d'audience) : la police de la charte et les armoiries sont servies par le site. Les pages sont compressées ; la feuille de style et le script restent en cache une journée, la police et les armoiries un mois.
+- La première visite pèse environ **47 Ko compressés**, dont 28 Ko pour la police (une seule fois, puis en cache). Les visites suivantes pèsent moins de **2 Ko**. Le texte s'affiche aussitôt en police du téléphone, puis passe en Cooper Hewitt une fois celle-ci chargée. Un test (`test_page_legere_pour_la_2g`) empêche la page de dépasser 30 Ko non compressés, et un autre (`test_police_legere`) limite chaque graisse à 20 Ko.
 
 **Langues de l'interface.** Le portail est proposé dans toutes les langues actives de Directus, et les contenus s'affichent dans la langue choisie (repli en français, signalé à l'écran). Les textes de l'interface (boutons, consignes) viennent de `src/coeur/portail/textes/<code>.json`. Sont fournis `fr.json` et `ln.json`. **Le lingala est une proposition à faire relire par un locuteur natif** (voir `textes/LISEZMOI.md`). Pour une autre langue, faire traduire `fr.json` et le déposer sous le code de la langue (ex. `sw.json`). Toute clé manquante est reprise du français, et un test vérifie que chaque traduction est complète.
 
@@ -388,6 +391,31 @@ Le tableau de bord présente une section *USSD et SMS* : dates de passage consul
 - **De bout en bout** : avec `SMS_SIMULATION=true`, Kannel remplace l'opérateur par un simulateur. Ensuite, `python outils/verifier_mobile.py` passe une session USSD, envoie des SMS à travers Kannel et vérifie qu'aucun numéro n'apparaît en clair.
 - **Badges fictifs** : `donnees/badges-exemple.csv` (EX0001 à EX0003 en service, EX0099 retiré).
 
+## Charte graphique du Gouvernement
+
+Toutes les interfaces que voient les utilisateurs suivent la **Charte graphique du Gouvernement de la RDC** (« La Marque État Congolais », février 2022) : le portail citoyen, les espaces connectés (tableau de bord, console des agents, écoute qualité), le simulateur, la documentation de l'API, les pages d'erreur et Directus.
+
+| Élément | Règle de la charte | Mise en œuvre |
+| --- | --- | --- |
+| Bloc-marque | Armoiries « Le Gouvernement » à gauche, **Ligne d'État** (bleu, jaune, rouge à parts égales, de haut en bas, hauteur des armoiries, 53 px au moins à l'écran), intitulé officiel | Macro `marque()` de `charte/gabarits/_charte.html`. Intitulé : *Institut national de la statistique, Bureau central du recensement* |
+| Couleurs | Drapeau : `#0095c9`, `#fff24b`, `#db3832`. Complémentaires, dont le bleu institutionnel `#17418a` | Variables de `charte/statique/charte.css`. Le bleu du drapeau, trop clair pour du texte (contraste 3,3:1), est réservé à la Ligne d'État ; liens, boutons et bandeaux sont en `#17418a` (9,9:1) |
+| Typographie | **Cooper Hewitt** : semi-gras pour l'intitulé et les titres, Medium pour le texte | Hébergée par le site (licence SIL OFL), réduite aux caractères utiles (français, lingala, tshiluba) : 14 Ko par graisse |
+| Site web | Accueil : bandeau blanc, armoiries en couleur. Autres pages : bandeau bleu, marque en blanc. Pied de page : liseré tricolore, marque, liens utiles | Portail : `accueil` dans `portail/routes.py`. Espaces internes, simulateur, erreurs, `/docs` : bandeau bleu |
+| Interdits | Armoiries en couleur sur fond sombre, ordre des couleurs changé, logo déformé, intitulé dans une autre police | Version blanche des armoiries sur les fonds bleus. Tests de `test_charte.py` (ordre, présence, variantes) |
+
+**Directus** : le script de configuration lui applique la charte. Il règle la couleur du projet, les armoiries en blanc, le bloc-marque et le fond bleu à liseré tricolore sur la page de connexion, ainsi que la police Cooper Hewitt (servie par Directus lui-même). L'interface est en français et les collections portent des noms français.
+
+**Régénérer les ressources** (armoiries, police, bloc-marque en image) après un changement de l'intitulé ou des tailles :
+
+```bash
+pip install fonttools brotli pillow
+# Police : https://www.cooperhewitt.org/wp-content/uploads/fonts/CooperHewitt-OTF-public.zip
+python outils/preparer_charte.py <dossier des .otf de Cooper Hewitt>
+docker compose build && docker compose up -d && docker compose up directus-config
+```
+
+Sources : armoiries publiées par le Gouvernement dans la charte (domaine public, CC0), conservées dans `charte/sources/` avec la licence de la police.
+
 ---
 
 ## Protection des données
@@ -493,6 +521,7 @@ python outils/verifier_pile.py
 - [ ] Faire l'audit de sécurité prévu avant l'ouverture de chaque canal.
 - [ ] Centre d'appels : obtenir la liaison SIP et le numéro vert (fiche dans `asterisk/LISEZMOI.md`), faire enregistrer les messages vocaux, ranger `CLE_CHIFFREMENT` dans le coffre-fort, `TELEPHONIE_SIMULATION=false` et `SVI_SYNTHESE_PROVISOIRE=false`.
 - [ ] Faire valider par le point focal protection des données l'enregistrement des appels (annonce, durée de 90 jours, accès).
+- [ ] Faire valider par l'INS l'intitulé du bloc-marque (*Institut national de la statistique, Bureau central du recensement*, dans `src/coeur/charte/__init__.py`) et, le cas échéant, par le Ministère de la Communication et Médias, garant de la charte.
 - [ ] USSD et SMS : obtenir le code court (ARPTC), la liaison SMPP et un agrégateur USSD (fiche dans `sms/LISEZMOI.md`). Importer la vraie liste des badges, saisir et publier le calendrier, faire relire les textes en lingala. Mettre `SMS_SIMULATION=false` et `SIMULATEUR_MOBILE=false`.
 - [ ] Console des agents : publier le WebSocket d'Asterisk (port 8088) **en `wss://` derrière le proxy HTTPS**, et renseigner `ASTERISK_WS_URL`. Les navigateurs n'autorisent le micro que sur un site en HTTPS. Renseigner `SIP_ADRESSE_EXTERNE` avec l'adresse IP publique.
 
@@ -553,4 +582,5 @@ Penser aux droits des rôles (voir `_droits()` dans `migrations/versions/0001_sc
 - **Sessions USSD rejouées** : le menu est recalculé à chaque échange à partir de la saisie cumulée. Il ne dépend donc d'aucune mémoire de session, et une demande répétée par la passerelle ne crée pas de doublon pendant 5 minutes. Ce format est celui de la plupart des agrégateurs ; un opérateur qui n'envoie que la dernière saisie demandera une petite route d'adaptation.
 - **Plafonds USSD et SMS** : le plafond de vérifications de badge est compté en mémoire, comme la limite de débit du portail. Le plafond de SMS, lui, est compté en base.
 - **Textes USSD et SMS** : en français, avec une proposition en lingala à relire. Les autres langues affichent les menus en français, mais servent les réponses validées dans leur langue.
+- **Charte dans Directus** : la page de connexion de Directus garde sa propre police, car Directus ne permet pas de la changer sur ses pages publiques. Le reste de l'application est en Cooper Hewitt.
 - **Exemples de contenus** : ils sont en français seulement et marqués `[EXEMPLE non validé]`. Aucun texte en langue nationale n'est fourni : il doit venir de traducteurs et être validé par le BCR.

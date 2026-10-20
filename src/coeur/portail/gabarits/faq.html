@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block titre %}{{ t.questions_frequentes }} — {{ t.titre_court }}{% endblock %}
 {% block contenu %}
-<h1>{{ t.questions_frequentes }}</h1>
+<h1 class="titre-page filet">{{ t.questions_frequentes }}</h1>
 {% for c in faq %}
 <details id="c{{ c.contenu_id }}">
   <summary lang="{{ c.langue }}">{{ c.question }}</summary>

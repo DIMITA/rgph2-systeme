@@ -43,8 +43,11 @@ def test_langue_inconnue_ou_inactive(client):
 
 def test_aucune_ressource_externe(client, exemples):
     html = client.get("/fr").text + client.get("/fr/faq").text + client.get("/fr/signaler").text
-    externes = re.findall(r'(?:src|href|action)="(https?:)?//', html)
+    # Ressources chargées (scripts, images, styles, polices, formulaires) ; les simples
+    # liens de navigation (<a href>, ex. le site officiel rgph.cd) sont permis.
+    externes = re.findall(r'(?:src|srcset|action)="(https?:)?//|<link[^>]+href="(https?:)?//', html)
     assert externes == []
+    assert html.count('href="https://rgph.cd"') == 3
 
 
 def test_page_legere_pour_la_2g(client, exemples):

@@ -1,0 +1,37 @@
+{#- Composants de la charte graphique du Gouvernement, partagés par toutes les interfaces.
+    Importer avec : {% import "_charte.html" as charte %} -#}
+
+{#- Balises de <head> : feuille de style commune, police préchargée, icône d'onglet. -#}
+{% macro tete() -%}
+<link rel="preload" href="/charte/cooper-hewitt-medium.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/charte/charte.css">
+<link rel="icon" type="image/png" href="/charte/favicon.png">
+<link rel="apple-touch-icon" href="/charte/apple-touch-icon.png">
+<meta name="theme-color" content="#17418a">
+{%- endmacro %}
+
+{#- Bloc-marque : armoiries, Ligne d'État, intitulé officiel (charte, p. 8 à 11).
+    `blanc` : version monochrome pour les fonds bleus (les armoiries en couleur sont
+    interdites sur fond sombre, p. 24). `grande` : 64 px (page d'accueil), sinon 54 px. -#}
+{% macro marque(lien="/", blanc=false, grande=false, intitule=none) -%}
+{%- set h = 64 if grande else 54 -%}
+{%- set fichier = "armoiries-blanc-" if blanc else "armoiries-" -%}
+<a class="marque{% if grande %} marque-grande{% endif %}" href="{{ lien }}">
+  <img src="/charte/{{ fichier }}{{ h }}.png" srcset="/charte/{{ fichier }}{{ h }}@2x.png 2x"
+       width="{{ h }}" height="{{ h }}" alt="Armoiries de la République démocratique du Congo">
+  <span class="ligne-etat" aria-hidden="true"></span>
+  <span class="intitule">{% for ligne in (intitule or INTITULE) %}<span>{{ ligne }}</span>{% endfor %}</span>
+</a>
+{%- endmacro %}
+
+{#- Pied de page bleu avec liseré tricolore (charte, p. 62). Le contenu (liens utiles,
+    contact) est passé par l'appelant : {% call charte.pied() %}…{% endcall %} -#}
+{% macro pied(lien="/") -%}
+<footer class="pied">
+  <div class="tricolore" aria-hidden="true"></div>
+  <div class="pied-int">
+    {{ marque(lien, blanc=true) }}
+    {{ caller() }}
+  </div>
+</footer>
+{%- endmacro %}

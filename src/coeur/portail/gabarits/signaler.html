@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block titre %}{{ t.signaler }} — {{ t.titre_court }}{% endblock %}
 {% block contenu %}
-<h1>{{ t.signaler }}</h1>
+<h1 class="titre-page filet">{{ t.signaler }}</h1>
 <p>{{ t.signaler_intro }}</p>
 {% if erreur %}<p class="erreur" role="alert">{{ erreur }}</p>{% endif %}
 <form method="post" action="/{{ langue }}/signaler">

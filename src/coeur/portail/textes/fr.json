@@ -36,5 +36,10 @@
   "retour_accueil": "Retour à l'accueil",
   "langue": "Langue",
   "numero_vert": "Numéro vert gratuit : {numero}",
-  "page_introuvable": "Page introuvable."
+  "page_introuvable": "Page introuvable.",
+  "menu": "Menu principal",
+  "accueil": "Accueil",
+  "liens_utiles": "Liens utiles",
+  "site_officiel": "Site officiel du RGPH-2",
+  "mentions": "Portail officiel d'information du RGPH-2. Institut national de la statistique, Bureau central du recensement, République démocratique du Congo."
 }

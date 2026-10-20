@@ -1,63 +1,55 @@
-/* Tableau de bord RGPH-2 : polices système, aucune ressource externe. */
-:root{--bleu:#0b4f8a;--bleu-clair:#e8f0f8;--jaune:#f7d117;--texte:#1a1a1a;--gris:#5c5c5c;--trait:#d9d9d9;--fond:#f5f6f8;--erreur:#a40000}
-*{box-sizing:border-box}
-/* L'attribut hidden doit toujours l'emporter (boutons de la console). */
-[hidden]{display:none !important}
-body{margin:0;font:0.95rem/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--texte);background:var(--fond)}
-header{background:var(--bleu);border-bottom:4px solid var(--jaune);padding:.6rem 1.2rem;display:flex;flex-wrap:wrap;gap:.5rem 1.5rem;align-items:center}
-header a{color:#fff}
-.marque{font-weight:700;text-decoration:none;margin-right:auto}
-nav{display:flex;flex-wrap:wrap;gap:.3rem 1rem}
+/* Espaces connectés (tableau de bord, console des agents, écoute qualité),
+   sur la base de /charte/charte.css. Aucune ressource externe. */
+body{font-size:.95rem;background:var(--fond-doux)}
+.espace{margin:0;font-weight:600;font-size:1.05rem;line-height:1.2;color:#fff}
+.espace span{display:block;font-size:.8rem;font-weight:500;opacity:.9}
+.bandeau nav{margin-left:auto}
 .session{display:flex;gap:.6rem;align-items:center;color:#fff;font-size:.85rem}
-.session button{background:transparent;border:1px solid #fff;color:#fff;margin:0;padding:.2rem .6rem}
-main{max-width:72rem;margin:0 auto;padding:1rem 1.2rem 3rem}
-h1{font-size:1.4rem;margin:.6rem 0 1rem}h2{font-size:1.05rem;margin:0 0 .6rem}
-a{color:var(--bleu)}
+.session button{margin:0;padding:.2rem .7rem;font-size:.85rem}
+main{max-width:72rem;margin:0 auto;padding:1rem 1rem 3rem}
+h1{font-size:1.45rem;margin:.8rem 0 1rem}h2{font-size:1.05rem;margin:0 0 .6rem}
 .carte{background:#fff;border:1px solid var(--trait);border-radius:6px;padding:1rem;margin-bottom:1rem;overflow-x:auto}
-.grille{display:grid;grid-template-columns:repeat(auto-fit,minmax(20rem,1fr));gap:1rem;align-items:start}
+.grille{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(20rem,100%),1fr));gap:1rem;align-items:start}
 .grille .carte{margin:0}
 .chiffres{display:grid;grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));gap:1rem;margin-bottom:1rem}
 .chiffre{background:#fff;border:1px solid var(--trait);border-left:4px solid var(--bleu);border-radius:6px;padding:.8rem 1rem;display:flex;flex-direction:column}
-.chiffre .valeur{font-size:1.7rem;font-weight:700;color:var(--bleu)}
-.chiffre span:last-child{color:var(--gris);font-size:.85rem}
+.chiffre .valeur{font-size:1.7rem;font-weight:600;color:var(--bleu)}
+.chiffre span:last-child{color:var(--texte-doux);font-size:.85rem}
 table{border-collapse:collapse;width:100%;background:#fff}
 th,td{text-align:left;padding:.4rem .5rem;border-bottom:1px solid var(--trait);vertical-align:top}
-thead th{font-size:.8rem;color:var(--gris);font-weight:600}
+thead th{font-size:.8rem;color:var(--texte-doux);text-transform:uppercase;letter-spacing:.03em}
 tbody th{font-weight:500}
 td.barre,th.barre{width:40%}
 progress{width:100%;height:.8rem;accent-color:var(--bleu)}
 .filtres{display:flex;flex-wrap:wrap;gap:.6rem 1rem;align-items:flex-end;margin-bottom:1rem}
-.filtres label{display:flex;flex-direction:column;font-size:.85rem;color:var(--gris);gap:.2rem}
-input,select{font:inherit;padding:.35rem .4rem;border:1px solid #999;border-radius:4px;background:#fff}
-button,.bouton{font:inherit;font-weight:600;color:#fff;background:var(--bleu);border:0;border-radius:4px;padding:.45rem 1rem;cursor:pointer;text-decoration:none;display:inline-block}
-.bouton{background:#fff;color:var(--bleu);border:1px solid var(--bleu)}
+.filtres label{display:flex;flex-direction:column;font-size:.85rem;color:var(--texte-doux);gap:.2rem}
+input,select{font-size:.95rem;padding:.35rem .4rem}
+button,.bouton{font-size:.95rem;padding:.4rem 1rem}
 form.statut{display:flex;gap:.3rem}
-form.statut button{padding:.3rem .6rem;font-size:.8rem}
-.connexion{max-width:24rem;margin:3rem auto}
-.connexion label{display:block;margin:.8rem 0 .3rem;font-weight:600}
-.connexion input{width:100%}
+form.statut button{padding:.25rem .6rem;font-size:.8rem}
+.connexion{max-width:26rem;margin:2.5rem auto;border-top:4px solid var(--bleu)}
+.connexion label{display:block;margin:.8rem 0 .3rem}
+.connexion input,.connexion select{width:100%}
 .connexion button{margin-top:1rem}
-.erreur{color:var(--erreur);font-weight:600}
-.note,.vide{color:var(--gris);font-size:.85rem}
+.vide{color:var(--texte-doux);font-size:.85rem}
 .pages{display:flex;gap:1rem}
 h2.section{margin:1.5rem 0 .6rem}
-button.secondaire{background:#fff;color:var(--bleu);border:1px solid var(--bleu)}
-button.danger{background:#b3261e}
 button.petit{padding:.2rem .6rem;font-size:.8rem;margin-left:.6rem;vertical-align:middle}
-.console{display:grid;grid-template-columns:repeat(auto-fit,minmax(22rem,1fr));gap:1rem;align-items:start}
+.console{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(22rem,100%),1fr));gap:1rem;align-items:start}
 .console .carte{margin:0}
-.console label{display:flex;flex-direction:column;font-size:.85rem;color:var(--gris);gap:.2rem;margin:.5rem 0}
-.console label.choix{flex-direction:row;color:var(--texte);font-size:.95rem;gap:.5rem}
+.console label{display:flex;flex-direction:column;font-size:.85rem;color:var(--texte-doux);gap:.2rem;margin:.5rem 0}
+.console label.choix{flex-direction:row;color:var(--texte);font-size:.95rem;font-weight:500;gap:.5rem}
 .console textarea,.console input:not([type=radio]),.console select{width:100%}
 .boutons{display:flex;flex-wrap:wrap;gap:.5rem;margin:.6rem 0}
-.etat{font-weight:700;padding:.5rem .7rem;border-radius:4px;background:#eee}
-.etat[data-etat=disponible]{background:#e3f4e6;color:#1d6b2c}
-.etat[data-etat=sonnerie]{background:#fff4d6;color:#7a5600}
-.etat[data-etat=communication]{background:var(--bleu-clair);color:var(--bleu)}
-.etat[data-etat=hors_ligne]{background:#fbe4e4;color:#a40000}
-.etat[data-etat=qualification]{background:#fff4d6;color:#7a5600}
+/* État du poste : couleurs de la charte (vert, jaune, bleu, rouge du drapeau). */
+.etat{font-weight:600;padding:.5rem .7rem;border-radius:4px;background:var(--fond-doux);border-left:4px solid var(--argent)}
+.etat[data-etat=disponible]{background:#eef7e8;border-color:var(--vert);color:#2d5a14}
+.etat[data-etat=sonnerie],.etat[data-etat=qualification]{background:var(--alerte);border-color:var(--etat-jaune);color:var(--anthracite)}
+.etat[data-etat=communication]{background:var(--bleu-pale);border-color:var(--bleu);color:var(--bleu)}
+.etat[data-etat=pause]{background:var(--fond-doux);border-color:var(--argent)}
+.etat[data-etat=hors_ligne]{background:#fdecea;border-color:var(--etat-rouge);color:var(--brun)}
 .qualification{border-top:1px solid var(--trait);margin-top:.8rem;padding-top:.6rem}
 .liberer{margin-top:1rem}
 #resultats details{border-bottom:1px solid var(--trait);padding:.4rem 0}
-#resultats summary{cursor:pointer;font-weight:600}
+#resultats summary{cursor:pointer;color:var(--bleu)}
 td audio{width:16rem;max-width:100%}

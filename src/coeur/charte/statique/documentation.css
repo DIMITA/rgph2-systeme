@@ -1,0 +1,8 @@
+/* Documentation de l'API (Swagger UI) aux couleurs de la charte. */
+.espace{margin:0;font-weight:600;font-size:1.05rem;line-height:1.2;color:#fff}
+.espace span{display:block;font-size:.8rem;font-weight:500;opacity:.9}
+.swagger-ui,.swagger-ui .info .title,.swagger-ui .opblock-tag,.swagger-ui .opblock .opblock-summary-description{font-family:var(--police)}
+.swagger-ui .info .title{color:var(--bleu)}
+.swagger-ui .topbar{display:none}
+.swagger-ui .btn.authorize,.swagger-ui .btn.execute{background:var(--bleu);border-color:var(--bleu);color:#fff}
+.swagger-ui .btn.authorize svg{fill:#fff}

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block contenu %}
+<h1 class="titre-page">{{ t.titre }}</h1>
 <p class="accroche">{{ t.accroche }}</p>
 
 <section id="fil" aria-live="polite"
@@ -27,7 +28,7 @@
 <p class="note">{{ t.confidentialite }}</p>
 
 <section>
-  <h2>{{ t.questions_frequentes }}</h2>
+  <h2 class="filet">{{ t.questions_frequentes }}</h2>
   {% if faq %}
   <ul>
     {% for c in faq %}<li><a href="/{{ langue }}/faq#c{{ c.contenu_id }}">{{ c.question }}</a></li>{% endfor %}

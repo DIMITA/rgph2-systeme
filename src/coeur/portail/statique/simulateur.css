@@ -1,4 +1,6 @@
-/* Simulateur de téléphone (page de test). */
-.alerte{background:var(--alerte);border-left:4px solid var(--jaune);padding:.6rem .8rem}
-.ecran{background:#1f2a1f;color:#d8f5d0;font:1rem/1.4 ui-monospace,Consolas,monospace;padding:1rem;border-radius:6px;white-space:pre-wrap;max-width:22rem}
+/* Simulateur de téléphone (page de test), sur la base de /charte/charte.css. */
+.espace{margin:0;font-weight:600;font-size:1.05rem;line-height:1.2;color:#fff}
+.espace span{display:block;font-size:.8rem;font-weight:500;opacity:.9}
+.alerte{background:var(--alerte);border-left:4px solid var(--etat-jaune);padding:.6rem .8rem}
+.ecran{background:var(--bleu-nuit);color:#fff;font:1rem/1.4 ui-monospace,Consolas,monospace;padding:1rem;border-radius:6px;border-top:5px solid var(--etat-bleu);white-space:pre-wrap;max-width:22rem}
 .telephone{max-width:22rem}

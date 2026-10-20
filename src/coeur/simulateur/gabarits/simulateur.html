@@ -1,18 +1,26 @@
 <!doctype html>
+{% import "_charte.html" as charte %}
 <html lang="fr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Simulateur de téléphone</title>
+<meta name="robots" content="noindex">
+<title>Simulateur de téléphone — RGPH-2</title>
+{{ charte.tete() }}
 <link rel="stylesheet" href="/statique/portail.css">
 <link rel="stylesheet" href="/statique/simulateur.css">
 </head>
 <body>
-<header><span class="marque">Simulateur de téléphone (tests)</span></header>
+<header class="bandeau bandeau-bleu">
+  <div class="bandeau-int">
+    {{ charte.marque("/simulateur", blanc=true) }}
+    <p class="espace">RGPH-2<span>Simulateur de téléphone (tests)</span></p>
+  </div>
+</header>
 <main>
 <p class="alerte">Page de test : chaque échange est traité comme un vrai (statistiques, signalements, rappels). Elle n'existe pas en production.</p>
 
-<h1>USSD</h1>
+<h1 class="titre-page filet">USSD</h1>
 {% if ecran %}
 <pre class="ecran" id="ecran-ussd">{{ ecran.texte }}</pre>
 {% if ecran.fin %}<p class="note" id="fin-ussd">Session terminée.</p>{% endif %}
@@ -31,7 +39,7 @@
   {% endif %}
 </form>
 
-<h1>SMS</h1>
+<h1 class="titre-page filet">SMS</h1>
 {% if sms_envoye %}
 <div class="bulle vous"><p class="auteur">Vous</p><p>{{ sms_envoye }}</p></div>
 {% if sms_reponse %}<div class="bulle officielle" id="reponse-sms"><p class="auteur">RGPH2</p><p>{{ sms_reponse }}</p></div>{% endif %}

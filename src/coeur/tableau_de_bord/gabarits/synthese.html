@@ -2,7 +2,7 @@
 {% from "_macros.html" import nb, repartition %}
 {% block titre %}Synthèse{% endblock %}
 {% block contenu %}
-<h1>Synthèse</h1>
+<h1 class="filet">Synthèse</h1>
 
 <form class="filtres" method="get" action="/tableau-de-bord">
   <label>Du <input type="date" name="depuis" value="{{ depuis or '' }}"></label>

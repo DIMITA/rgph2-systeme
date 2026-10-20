@@ -2,16 +2,19 @@
 
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, status
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException
 from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from coeur import charte
 from coeur.badges.routes import routeur as badges
 from coeur.base import session_db
 from coeur.calendrier.routes import routeur as calendrier
+from coeur.charte import documentation, erreurs
 from coeur.centre_appels.routes import routeur as centre_appels
 from coeur.tableau_de_bord.console import routeur as console_agents
 from coeur.config import parametres
@@ -30,7 +33,10 @@ from coeur.territoires.routes import routeur as territoires
 from coeur.ussd.routes import routeur as ussd
 
 app = FastAPI(
-    title="RGPH-2 — Cœur",
+    title="API du RGPH-2 — INS · Bureau central du recensement",
+    # Documentation servie par charte.documentation (aux couleurs de la charte).
+    docs_url=None,
+    redoc_url=None,
     description=(
         "API commune à tous les canaux (USSD/SMS, WhatsApp, web, kiosques, "
         "Ambassadeurs, centre d'écoute). Ne sert que des contenus validés par le BCR ; "
@@ -41,6 +47,9 @@ app = FastAPI(
 # Ni numéro, ni texte de SMS, ni clé dans le journal d'accès.
 proteger_journal_acces()
 app.add_middleware(GZipMiddleware, minimum_size=500)
+# Pages d'erreur aux couleurs de la charte (navigateurs) ; JSON inchangé pour l'API.
+app.add_exception_handler(HTTPException, erreurs.erreur_http)
+app.add_exception_handler(Exception, erreurs.erreur_inattendue)
 # Session du tableau de bord : cookie signé, limité à son chemin (le portail n'en pose aucun).
 app.add_middleware(
     SessionMiddleware,
@@ -52,6 +61,8 @@ app.add_middleware(
     https_only=parametres().session_https_seulement,
 )
 app.middleware("http")(entetes_securite)
+# Charte graphique du Gouvernement : feuille de style, police, armoiries (toutes les interfaces).
+app.mount(charte.CHEMIN, StaticFiles(directory=charte.STATIQUE), name="charte")
 app.mount(
     "/statique",
     StaticFiles(directory=Path(__file__).parent / "portail" / "statique"),
@@ -72,6 +83,8 @@ def sante(session: Session = Depends(session_db)) -> dict[str, str]:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Base indisponible") from erreur
     return {"statut": "ok"}
 
+
+app.include_router(documentation.routeur)
 
 # Le portail en dernier : ses adresses (/fr, /ln…) ne doivent masquer aucune route de l'API.
 for routeur in (

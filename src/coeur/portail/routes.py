@@ -11,10 +11,10 @@ from pathlib import Path as Chemin
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Path, Request
 from fastapi.responses import JSONResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from pydantic import Field, ValidationError
 from sqlalchemy.orm import Session
 
+from coeur import charte
 from coeur.base import session_db
 from coeur.commun import Canal, SchemaEntree
 from coeur.config import Parametres, parametres
@@ -29,7 +29,7 @@ from coeur.signalements.schemas import SignalementEntree
 from coeur.territoires import service as territoires
 
 routeur = APIRouter(include_in_schema=False)
-gabarits = Jinja2Templates(directory=Chemin(__file__).parent / "gabarits")
+gabarits = charte.gabarits(Chemin(__file__).parent / "gabarits")
 
 NB_QUESTIONS_ACCUEIL = 5
 # Pas de motif ici : une langue inconnue doit donner 404 (via _verifier_langue), pas 422.
@@ -84,6 +84,9 @@ def _page(request: Request, session: Session, langue: str, gabarit: str,
             "t": t,
             "numero_vert": reglages.numero_vert,
             "message_escalade": message_escalade(t, reglages.numero_vert),
+            # Charte : bandeau blanc sur la page d'accueil, bleu sur les autres.
+            "accueil": gabarit == "accueil.html",
+            "page": gabarit.removesuffix(".html"),
             **contexte,
         },
         status_code=statut,

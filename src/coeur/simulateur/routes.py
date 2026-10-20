@@ -9,9 +9,9 @@ import secrets
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from coeur import charte
 from coeur.base import session_db
 from coeur.config import Parametres, parametres
 from coeur.connaissances.depot import Corpus
@@ -20,7 +20,7 @@ from coeur.sms import service as sms
 from coeur.ussd import service as ussd
 
 routeur = APIRouter(prefix="/simulateur", include_in_schema=False)
-gabarits = Jinja2Templates(directory=Path(__file__).parent / "gabarits")
+gabarits = charte.gabarits(Path(__file__).parent / "gabarits")
 NUMERO_EXEMPLE = "0810000000"
 
 
