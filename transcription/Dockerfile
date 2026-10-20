@@ -1,7 +1,8 @@
 # Service de transcription du RGPH-2 (messages vocaux → texte), sur processeur.
 # Pour un serveur avec GPU NVIDIA : remplacer l'index « cpu » de PyTorch par « cu124 »
 # et réserver le GPU dans docker-compose.yml (voir LISEZMOI.md).
-# MOTEUR=omnilingual ajoute Meta Omnilingual ASR (fairseq2) ; à régler aussi à l'exécution.
+# MOTEUR=omnilingual ajoute Meta Omnilingual ASR (fairseq2, variante processeur de l'index
+# de Meta : celle de PyPI exige CUDA) ; à régler aussi à l'exécution.
 FROM python:3.12-slim
 ARG MOTEUR=mms
 
@@ -14,6 +15,7 @@ COPY requirements*.txt /app/
 RUN if [ "$MOTEUR" = omnilingual ]; then \
         apt-get update && apt-get install -y --no-install-recommends build-essential cmake zlib1g-dev \
         && pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu \
+           --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.8.0/cpu "torch==2.8.0" \
            -r /app/requirements.txt -r /app/requirements-omnilingual.txt \
         && apt-get purge -y build-essential cmake zlib1g-dev && apt-get autoremove -y \
         && rm -rf /var/lib/apt/lists/*; \

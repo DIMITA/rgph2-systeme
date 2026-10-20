@@ -77,9 +77,11 @@ jobs:
           sudo apt-get install -y --no-install-recommends ffmpeg libsndfile1 build-essential cmake zlib1g-dev
       - name: Dépendances (PyTorch pour processeur)
         run: |
+          # fairseq2 de PyPI est compilé pour CUDA : variante processeur, index de Meta.
           pip install --extra-index-url https://download.pytorch.org/whl/cpu \
-            -r transcription/requirements.txt -r transcription/requirements-omnilingual.txt \
-            huggingface_hub httpx
+            --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.8.0/cpu \
+            "torch==2.8.0" -r transcription/requirements.txt \
+            -r transcription/requirements-omnilingual.txt huggingface_hub httpx
           pip install -e .
           python -c "import torch; print('torch', torch.__version__)"
       - uses: actions/cache@v4

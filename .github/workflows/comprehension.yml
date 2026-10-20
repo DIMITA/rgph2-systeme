@@ -49,7 +49,10 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libsndfile1
       - name: Dépendances (PyTorch pour processeur)
         run: |
-          pip install --extra-index-url https://download.pytorch.org/whl/cpu ${{ matrix.paquets }}
+          # fairseq2 (SONAR) de PyPI est compilé pour CUDA : variante processeur, index de Meta.
+          pip install --extra-index-url https://download.pytorch.org/whl/cpu \
+            --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.8.0/cpu \
+            "torch==2.8.0" ${{ matrix.paquets }}
           pip install -e .
       - uses: actions/cache@v4
         with:
