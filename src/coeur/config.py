@@ -47,7 +47,10 @@ class Parametres(BaseSettings):
 
     # Tableau de bord : connexion avec les comptes Directus.
     directus_url: str = "http://directus:8055"
+    # Rôles Directus admis dans chaque espace (listes séparées par des virgules).
     roles_tableau_de_bord: str = "Administrator,Validateur BCR,Tableau de bord"
+    roles_agents: str = "Administrator,Agent centre d'appels"
+    roles_qualite: str = "Administrator,Superviseur qualité"
     # Signe le cookie de session du tableau de bord (32 caractères au moins).
     secret_session: str = Field(min_length=32)
     # À activer en production (HTTPS) : le cookie n'est alors jamais envoyé en clair.
@@ -67,9 +70,22 @@ class Parametres(BaseSettings):
     dossier_enregistrements: str = "/donnees/enregistrements"
     conservation_enregistrements_jours: int = 90
     conservation_rappels_jours: int = 7
+    # Adresse WebSocket d'Asterisk vue du navigateur des agents (wss:// en production).
+    asterisk_ws_url: str = "ws://localhost:8088/ws"
+    # Domaine SIP des postes (indifférent pour Asterisk, qui identifie par l'utilisateur).
+    sip_domaine: str = "rgph2.local"
+
+    def roles_par_espace(self) -> dict[str, set[str]]:
+        """Espace (pilotage, agents, qualite) → rôles Directus admis."""
+        def liste(texte: str) -> set[str]:
+            return {r.strip() for r in texte.split(",") if r.strip()}
+
+        return {"pilotage": liste(self.roles_tableau_de_bord),
+                "agents": liste(self.roles_agents),
+                "qualite": liste(self.roles_qualite)}
 
     def roles_autorises(self) -> set[str]:
-        return {r.strip() for r in self.roles_tableau_de_bord.split(",") if r.strip()}
+        return set().union(*self.roles_par_espace().values())
 
     def cles_par_canal(self) -> dict[str, Canal]:
         """Associe chaque clé d'API au canal qu'elle identifie."""

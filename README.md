@@ -5,7 +5,8 @@ Ce dépôt contient le **cœur commun** auquel se brancheront les six canaux du 
 - étape 1 : le cœur ;
 - étape 2 : le **portail web et son chatbot**, premier canal branché ;
 - étape 3 : le **tableau de bord du Ministère** ;
-- étape 4a : le **centre d'appels** (numéro vert sur IP : serveur vocal, file d'attente, rappels, enregistrements).
+- étape 4a : le **centre d'appels** (numéro vert sur IP : serveur vocal, file d'attente, rappels, enregistrements) ;
+- étape 4b : la **console des agents** dans le navigateur et l'**écoute qualité**.
 
 Le cœur fait trois choses :
 
@@ -76,7 +77,7 @@ Chaque module est un dossier de `src/coeur/` qui contient `modeles.py` (tables),
 | `retention/` | Suppression des données à la fin de la période de conservation |
 | `portail/` | Portail web citoyen et chatbot (canal « web ») : pages et textes de l'interface |
 | `centre_appels/` | Menu du serveur vocal, suivi des appels (empreinte du numéro), rappels chiffrés, enregistrements et leur purge |
-| `tableau_de_bord/` | Tableau de bord du Ministère : synthèse, questions sans réponse, signalements. Connexion avec les comptes Directus |
+| `tableau_de_bord/` | Espaces connectés avec les comptes Directus : tableau de bord du Ministère, console des agents (`console.py`), écoute qualité |
 
 Fichiers transverses : `main.py` (assemblage), `config.py` (réglages), `securite.py` (clés d'API), `base.py` (base de données), `commun.py` (types partagés), `limiteur.py` (limite de débit par adresse IP).
 
@@ -144,6 +145,8 @@ Au démarrage, `docker compose up` lance dans l'ordre :
 | **Validateur BCR** | Tout ce que fait le Rédacteur, plus publier, archiver, gérer les formulations et les langues | Administrer Directus |
 | **Lecteur** | Consulter | Modifier |
 | **Tableau de bord** | Se connecter au tableau de bord du Ministère | Voir ou modifier les contenus |
+| **Agent centre d'appels** | Utiliser la console des agents (téléphone, FAQ, signalements, rappels) | Voir les statistiques ou écouter les enregistrements |
+| **Superviseur qualité** | Écouter les conversations enregistrées (écoutes journalisées) | Voir les statistiques ou utiliser la console |
 
 Pour créer un compte : **Paramètres → Utilisateurs → Créer**, puis choisir le rôle. Ces règles sont définies dans `outils/configurer_directus.py`, et `outils/verifier_pile.py` vérifie qu'elles sont bien appliquées.
 
@@ -259,7 +262,7 @@ Adresse : **http://localhost:8000/tableau-de-bord**. Les pages sont rendues par 
 | Questions sans réponse | Les questions escaladées les plus fréquentes (30 derniers jours) et les plus récentes, filtrables par langue et par motif. **C'est la liste de travail pour enrichir la FAQ** dans Directus |
 | Signalements | Liste filtrable (territoire, type, statut) avec quartier ou village et précisions, pour les équipes de terrain, et changement de statut |
 
-**Connexion avec les comptes Directus.** Il n'y a pas de second annuaire : le Ministère crée et désactive les comptes dans Directus. Rôles admis (`ROLES_TABLEAU_DE_BORD`) :
+**Connexion avec les comptes Directus.** Il n'y a pas de second annuaire : le Ministère crée et désactive les comptes dans Directus. Une même page de connexion mène à trois espaces, chacun réservé à des rôles : le **pilotage** (cette section, `ROLES_TABLEAU_DE_BORD`), la **console des agents** (`ROLES_AGENTS`) et l'**écoute qualité** (`ROLES_QUALITE`). Chacun arrive directement dans son espace. Rôles admis au pilotage :
 
 - *Administrator* ;
 - *Validateur BCR* ;
@@ -298,7 +301,22 @@ Le SVI se met à jour seul toutes les 5 minutes. Les messages fixes (accueil, me
 
 **Dimensionnement retenu** : 240 appels par jour au pic, soit environ 36 à l'heure de pointe. Il faut **6 agents** et **10 canaux simultanés** chez l'opérateur pour que 80 % des appels soient décrochés en moins de 30 secondes (calcul Erlang C).
 
-**Rappels** : le numéro de l'appelant est conservé **chiffré** (Fernet, clé `CLE_CHIFFREMENT`) et **effacé dès que le rappel est traité**, ou au plus tard après `CONSERVATION_RAPPELS_JOURS` (7). Le service `taches` vérifie ces délais toutes les heures. La liste des rappels et la console des agents arrivent à l'étape 4b.
+**Rappels** : le numéro de l'appelant est conservé **chiffré** (Fernet, clé `CLE_CHIFFREMENT`). Il n'est révélé qu'à l'agent qui prend le rappel en charge, et il est **effacé dès que le rappel est clôturé**, ou au plus tard après `CONSERVATION_RAPPELS_JOURS` (7). Le service `taches` vérifie ces délais toutes les heures.
+
+### Console des agents
+
+Adresse : `/tableau-de-bord/agent`, réservée au rôle Directus *Agent centre d'appels*. L'agent travaille avec un casque et un navigateur récent (Edge, Chrome, Firefox), sans téléphone.
+
+1. **Prendre un poste** (poste1…poste6). Le navigateur devient le téléphone de ce poste (WebRTC, bibliothèque JsSIP servie par le site). Un poste ne sert qu'à un agent à la fois.
+2. **Recevoir les appels** de la file : décrocher, raccrocher, couper le micro, se mettre en pause ou reprendre. La langue choisie par l'appelant s'affiche, jamais son numéro.
+3. **Chercher la réponse validée** à lire au citoyen. Ces recherches ne sont pas comptées dans les statistiques.
+4. **Enregistrer un signalement** pris au téléphone (canal `centre_ecoute`).
+5. **Qualifier l'appel** avant le suivant : citoyen renseigné, signalement, question transmise au BCR, hors sujet, appel coupé. C'est une liste fermée, sans texte libre.
+6. **Traiter les rappels** : « Prendre » réserve la demande et affiche le numéro, « Appeler » le compose, puis « Rappelé » ou « Injoignable » clôt la demande et efface le numéro.
+
+### Écoute qualité
+
+Adresse : `/tableau-de-bord/qualite`, réservée au rôle *Superviseur qualité*. On y trouve la liste des conversations (date, poste, langue, durée, issue) et l'écoute dans le navigateur. **Chaque écoute est journalisée** (compte, date, fichier). Ce journal survit à la suppression de l'enregistrement et n'est effacé qu'à la purge de fin de conservation.
 
 ---
 
@@ -317,6 +335,8 @@ Ces règles sont **appliquées par le code** et **vérifiées par des tests**, p
 | Cloisonnement | 3 rôles PostgreSQL. L'API ne peut pas modifier les contenus. Directus ne voit ni les interactions ni les signalements | `test_droits_base.py` |
 | Numéro des demandes de rappel | **Chiffré** dans la base, effacé dès le rappel traité ou après 7 jours | `test_demande_de_rappel_chiffree`, `test_rappels_expires_apres_sept_jours` |
 | Enregistrements des appels | Annonce en début d'appel, suppression automatique après 90 jours (fichiers compris) | `test_purge_des_enregistrements_anciens` |
+| Numéro à rappeler révélé à un seul agent | Affiché seulement à l'agent qui prend le rappel (verrou en base), jamais dans les listes | `test_prendre_et_cloturer_un_rappel`, `test_liste_des_rappels_sans_numero` |
+| Écoute des enregistrements | Réservée au rôle Superviseur qualité. Chaque écoute est journalisée, et le journal survit à la suppression du fichier | `test_ecoute_journalisee`, `test_journal_des_ecoutes_conserve_apres_suppression` |
 | Téléphonie sans trace en clair | Pas de CDR, de CEL ni de journal de file. Journaux d'Asterisk sans numéros | `test_logs_et_cdr_sans_numero_en_clair`, `outils/verifier_telephonie.py` |
 | Contenus validés seulement | L'API ne lit que les contenus `publie`. Seul le rôle Validateur BCR peut publier | `test_questions.py`, `outils/verifier_pile.py` |
 
@@ -364,7 +384,9 @@ python outils/verifier_pile.py
 | `FORWARDED_ALLOW_IPS` | 127.0.0.1 | Adresse du proxy HTTPS (voir [Portail web](#portail-web-et-chatbot)) |
 | `SECRET_SESSION` | (aucun) | Signe le cookie du tableau de bord. Le changer déconnecte tout le monde |
 | `SESSION_HTTPS_SEULEMENT` | false | À passer à `true` dès que le site est servi en HTTPS |
-| `ROLES_TABLEAU_DE_BORD` | Administrator,Validateur BCR,Tableau de bord | Rôles Directus admis au tableau de bord |
+| `ROLES_TABLEAU_DE_BORD` | Administrator,Validateur BCR,Tableau de bord | Rôles Directus admis au pilotage |
+| `ROLES_AGENTS` | Administrator,Agent centre d'appels | Rôles admis à la console des agents |
+| `ROLES_QUALITE` | Administrator,Superviseur qualité | Rôles admis à l'écoute qualité |
 | `FUSEAU_HORAIRE` | Africa/Kinshasa | Heure affichée et découpage des journées du tableau de bord |
 | `CLE_API_CENTRE_ECOUTE` | (aucun) | Clé du canal `centre_ecoute`, partagée par l'API et Asterisk |
 | `CLE_CHIFFREMENT` | (aucun) | Clé Fernet de chiffrement des numéros à rappeler. **Secret critique** : sa perte rend les rappels en attente illisibles |
@@ -375,7 +397,9 @@ python outils/verifier_pile.py
 | `RAPPEL_APRES_SECONDES` | 180 | Attente avant de proposer un rappel |
 | `CONSERVATION_ENREGISTREMENTS_JOURS` | 90 | Durée de conservation des conversations enregistrées |
 | `CONSERVATION_RAPPELS_JOURS` | 7 | Délai au-delà duquel un numéro à rappeler est effacé |
-| `OPERATEUR_SIP_*`, `SIP_ADRESSE_EXTERNE` | (vide) | Liaison de l'opérateur (voir [asterisk/LISEZMOI.md](asterisk/LISEZMOI.md)) |
+| `OPERATEUR_SIP_*`, `SIP_ADRESSE_EXTERNE` | (vide) | Liaison de l'opérateur et adresse publique du serveur, aussi annoncée aux navigateurs des agents (voir [asterisk/LISEZMOI.md](asterisk/LISEZMOI.md)) |
+| `ASTERISK_WS_URL` | ws://localhost:8088/ws | Adresse WebSocket d'Asterisk vue du navigateur des agents (`wss://…` en production) |
+| `SIP_DOMAINE` | rgph2.local | Domaine SIP des postes |
 | `TELEPHONIE_SIMULATION`, `SIMULATEUR_MDP` | false, (vide) | Appels simulés et téléphone logiciel de test. **Jamais en production** |
 
 ### Avant la mise en production
@@ -389,6 +413,7 @@ python outils/verifier_pile.py
 - [ ] Faire l'audit de sécurité prévu avant l'ouverture de chaque canal.
 - [ ] Centre d'appels : obtenir la liaison SIP et le numéro vert (fiche dans `asterisk/LISEZMOI.md`), faire enregistrer les messages vocaux, ranger `CLE_CHIFFREMENT` dans le coffre-fort, `TELEPHONIE_SIMULATION=false` et `SVI_SYNTHESE_PROVISOIRE=false`.
 - [ ] Faire valider par le point focal protection des données l'enregistrement des appels (annonce, durée de 90 jours, accès).
+- [ ] Console des agents : publier le WebSocket d'Asterisk (port 8088) **en `wss://` derrière le proxy HTTPS**, et renseigner `ASTERISK_WS_URL`. Les navigateurs n'autorisent le micro que sur un site en HTTPS. Renseigner `SIP_ADRESSE_EXTERNE` avec l'adresse IP publique.
 
 ---
 
@@ -403,6 +428,7 @@ pytest
 
 - `tests/unitaires/` : moteur de recherche, confidentialité, limiteur de débit. Ces tests ne demandent pas de base.
 - `tests/integration/` : API de bout en bout contre PostgreSQL, migrations, droits des rôles. Chaque lancement repart d'une base vide et vérifie au passage que les migrations s'appliquent et s'annulent.
+- `outils/verifier_console_agent.py` : la console des agents dans un vrai navigateur (Edge piloté par Playwright, micro factice). Connexion du poste, appel décroché et enregistré avec du son, qualification, pause, rappel, écoute qualité journalisée. Prérequis : `pip install -e ".[e2e]"`.
 - `outils/verifier_telephonie.py` : trois appels simulés (serveur vocal, rappel, agent) et contrôle de l'absence de numéro en clair. Il faut `TELEPHONIE_SIMULATION=true`.
 - `outils/verifier_pile.py` : vérification sur la pile complète, Directus compris : circuit de validation et connexion au tableau de bord. Il ne journalise qu'une seule question, pour ne pas fausser les statistiques.
 
@@ -437,5 +463,7 @@ Penser aux droits des rôles (voir `_droits()` dans `migrations/versions/0001_sc
 - **Interface du portail** : disponible en français et en lingala (proposition à relire). Les autres langues affichent l'interface en français tant que leur fichier `textes/<langue>.json` n'est pas fourni.
 - **Limite de débit** : elle est comptée par processus. Avec plusieurs processus ou serveurs, la limite effective est multipliée d'autant. Un compteur partagé (Redis) serait à prévoir si la charge l'exige.
 - **Messages vocaux** : tant qu'ils ne sont pas enregistrés, une voix de synthèse française provisoire les remplace, y compris pour les autres langues.
-- **Console des agents** : elle arrive à l'étape 4b (téléphone dans le navigateur, liste des rappels, écoute qualité). D'ici là, les postes existent mais aucun agent ne peut s'y connecter.
+- **Postes partagés** : un poste ne sert qu'à un agent à la fois. Un second agent qui prend le même poste déconnecte le premier.
+- **Rappel resté « en cours »** : si l'agent qui l'a pris ne le clôture pas, le rappel reste bloqué jusqu'à l'expiration automatique (7 jours). L'administrateur peut le clôturer depuis son propre compte agent.
+- **Codecs** : postes et opérateur en G.711 (A-law, µ-law), sans transcodage. Asterisk n'a pas de module Opus libre.
 - **Exemples de contenus** : ils sont en français seulement et marqués `[EXEMPLE non validé]`. Aucun texte en langue nationale n'est fourni : il doit venir de traducteurs et être validé par le BCR.

@@ -53,6 +53,9 @@ def test_postes_et_file(environnement):
     v = configurer.valeurs()
     assert v["POSTES"].count("type=endpoint") == 3
     assert "webrtc=yes" in v["POSTES"]
+    assert "rewrite_contact=yes" in v["POSTES"]  # indispensable pour joindre un poste WebRTC
+    assert "from_domain=rgph2.local" in v["POSTES"]  # JsSIP refuse le nom du conteneur
+    assert "opus" not in v["POSTES"]  # pas de transcodeur Opus libre : G.711 seulement
     assert v["MEMBRES"].splitlines()[-1] == "member => PJSIP/poste3,0,Poste 3,PJSIP/poste3"
     assert v["OPERATEUR"].startswith("; Liaison opérateur non configurée")
 
@@ -116,3 +119,26 @@ def test_langue_sans_reponse_audio_va_au_conseiller():
 def test_aucune_langue():
     texte = generer_dialplan([], {})
     assert "Goto(file-attente,s,1)" in texte
+
+
+def test_rappels_sortants(environnement, monkeypatch):
+    assert configurer.appel_sortant().startswith("Dial(PJSIP/simulateur")
+    monkeypatch.setenv("OPERATEUR_SIP_HOTE", "sip.operateur.cd")
+    assert configurer.appel_sortant() == "Dial(PJSIP/${EXTEN}@operateur,60)"
+    monkeypatch.setenv("OPERATEUR_SIP_HOTE", "")
+    monkeypatch.setenv("SIMULATEUR_MDP", "")
+    assert configurer.appel_sortant().startswith("Playback(")
+
+
+def test_candidats_ice(environnement, monkeypatch):
+    monkeypatch.setenv("SIP_ADRESSE_EXTERNE", "")
+    assert configurer.ice_hotes().startswith(";")
+    monkeypatch.setenv("SIP_ADRESSE_EXTERNE", "41.243.1.2")
+    texte = configurer.ice_hotes()
+    assert texte.startswith("[ice_host_candidates]\n") and texte.endswith(" => 41.243.1.2")
+
+
+def test_codes_de_pause_des_agents():
+    texte = (DOSSIER / "config" / "extensions.conf").read_text(encoding="utf-8")
+    assert "exten => *1,1,Answer()" in texte and "PauseQueueMember(rgph," in texte
+    assert "UnpauseQueueMember(rgph," in texte

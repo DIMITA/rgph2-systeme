@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from coeur.base import session_db
 from coeur.centre_appels.routes import routeur as centre_appels
+from coeur.tableau_de_bord.console import routeur as console_agents
 from coeur.config import parametres
 from coeur.connaissances.routes import routeur as connaissances
 from coeur.portail.routes import routeur as portail
@@ -66,6 +67,7 @@ def sante(session: Session = Depends(session_db)) -> dict[str, str]:
 
 # Le portail en dernier : ses adresses (/fr, /ln…) ne doivent masquer aucune route de l'API.
 for routeur in (
-    connaissances, signalements, statistiques, territoires, centre_appels, tableau_de_bord, portail,
+    connaissances, signalements, statistiques, territoires, centre_appels,
+    tableau_de_bord, console_agents, portail,
 ):
     app.include_router(routeur)

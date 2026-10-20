@@ -40,7 +40,7 @@ def _unite(niveau: Niveau, colonne_territoire) -> ColumnElement[str]:
     return func.coalesce(colonne_territoire, UNITE_INCONNUE)
 
 
-def _bornes(colonne, depuis: date | None, jusqu_a: date | None,
+def bornes_journees(colonne, depuis: date | None, jusqu_a: date | None,
             fuseau: tzinfo = timezone.utc) -> list:
     """Journées entières, découpées selon `fuseau` (UTC par défaut)."""
     conditions = []
@@ -77,7 +77,7 @@ def calculer(
             func.count(Interaction.usager_empreinte.distinct()),
         )
         .outerjoin(Territoire, Territoire.code == Interaction.territoire_code)
-        .where(*_bornes(Interaction.horodatage, depuis, jusqu_a))
+        .where(*bornes_journees(Interaction.horodatage, depuis, jusqu_a))
         .group_by(unite_i, Interaction.canal, Interaction.langue_demandee)
         .order_by(unite_i, Interaction.canal, Interaction.langue_demandee)
     ).all()
@@ -94,7 +94,7 @@ def calculer(
     lignes_s = session.execute(
         select(unite_s, Signalement.type, func.count())
         .outerjoin(Territoire, Territoire.code == Signalement.territoire_code)
-        .where(*_bornes(Signalement.horodatage, depuis, jusqu_a))
+        .where(*bornes_journees(Signalement.horodatage, depuis, jusqu_a))
         .group_by(unite_s, Signalement.type)
         .order_by(unite_s, Signalement.type)
     ).all()
@@ -141,7 +141,7 @@ def repartir_interactions(
         )
         .select_from(Interaction)
         .outerjoin(Territoire, Territoire.code == Interaction.territoire_code)
-        .where(*_bornes(Interaction.horodatage, depuis, jusqu_a, fuseau))
+        .where(*bornes_journees(Interaction.horodatage, depuis, jusqu_a, fuseau))
         .group_by(valeur)
         .order_by(func.count().desc(), valeur)
     ).all()
@@ -162,7 +162,7 @@ def repartir_signalements(
         select(valeur, func.count())
         .select_from(Signalement)
         .outerjoin(Territoire, Territoire.code == Signalement.territoire_code)
-        .where(*_bornes(Signalement.horodatage, depuis, jusqu_a, fuseau))
+        .where(*bornes_journees(Signalement.horodatage, depuis, jusqu_a, fuseau))
         .group_by(valeur)
         .order_by(func.count().desc(), valeur)
     ).all()

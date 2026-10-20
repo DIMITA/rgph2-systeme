@@ -15,7 +15,8 @@ async def entetes_securite(request: Request, suivant):
     reponse = await suivant(request)
     chemin = request.url.path
     if not chemin.startswith(CHEMINS_EXCLUS):
-        reponse.headers["Content-Security-Policy"] = POLITIQUE
+        # Une page peut fixer sa propre politique (console des agents : WebSocket vers Asterisk).
+        reponse.headers.setdefault("Content-Security-Policy", POLITIQUE)
         reponse.headers["X-Content-Type-Options"] = "nosniff"
         reponse.headers["Referrer-Policy"] = "no-referrer"
         reponse.headers["X-Frame-Options"] = "DENY"

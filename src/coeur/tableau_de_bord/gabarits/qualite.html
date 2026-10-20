@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block titre %}Écoute qualité{% endblock %}
+{% block contenu %}
+<h1>Écoute qualité</h1>
+<p>Les conversations sont conservées {{ conservation }} jours, puis supprimées automatiquement. <strong>Chaque écoute est enregistrée</strong> (compte, date) et reste consultable ci-dessous.</p>
+
+<section class="carte">
+  <h2>Conversations enregistrées</h2>
+  {% if enregistrements %}
+  <table>
+    <thead><tr><th scope="col">Date</th><th scope="col">Poste</th><th scope="col">Langue</th><th scope="col">Durée</th><th scope="col">Issue</th><th scope="col">Écouter</th></tr></thead>
+    <tbody>
+    {% for e, appel, duree in enregistrements %}
+      <tr>
+        <td>{{ e.cree_a | heure_locale }}</td>
+        <td>{{ e.poste or "—" }}</td>
+        <td>{{ noms.get(appel.langue, "—") if appel and appel.langue else "—" }}</td>
+        <td>{{ duree }}</td>
+        <td>{{ qualifications.get(appel.qualification, "—") if appel and appel.qualification else "—" }}</td>
+        <td><audio controls preload="none" src="/tableau-de-bord/qualite/ecouter/{{ e.id }}"></audio></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="pages">
+    {% if page > 1 %}<a href="?page={{ page - 1 }}">← Plus récentes</a>{% endif %}
+    {% if page_suivante %}<a href="?page={{ page + 1 }}">Plus anciennes →</a>{% endif %}
+  </p>
+  {% else %}<p class="vide">Aucune conversation enregistrée.</p>{% endif %}
+</section>
+
+<section class="carte">
+  <h2>Journal des écoutes</h2>
+  {% if ecoutes %}
+  <table>
+    <thead><tr><th scope="col">Date</th><th scope="col">Compte</th><th scope="col">Fichier</th></tr></thead>
+    <tbody>
+    {% for x in ecoutes %}<tr><td>{{ x.ecoute_a | heure_locale }}</td><td>{{ x.utilisateur }}</td><td>{{ x.fichier }}{% if x.enregistrement_id is none %} (supprimé){% endif %}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="vide">Aucune écoute.</p>{% endif %}
+</section>
+{% endblock %}

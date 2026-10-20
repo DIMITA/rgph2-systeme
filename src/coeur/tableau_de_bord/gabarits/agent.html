@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block titre %}Console agent{% endblock %}
+{% block contenu %}
+{% if not poste %}
+<section class="carte connexion">
+  <h1>Choisir un poste</h1>
+  <p>Chaque poste ne peut servir qu'à un agent à la fois : un second agent sur le même poste déconnecte le premier.</p>
+  <form method="post" action="/tableau-de-bord/agent/poste">
+    <label for="poste">Poste</label>
+    <select id="poste" name="poste" required>
+      {% for p in postes %}<option value="{{ p }}">{{ p | replace("poste", "Poste ") }}</option>{% endfor %}
+    </select>
+    <button type="submit">Prendre ce poste</button>
+  </form>
+</section>
+{% else %}
+<div id="console" class="console"
+  data-ws-url="{{ ws_url }}"
+  data-sip-uri="{{ sip_uri }}"
+  data-mot-de-passe="{{ mot_de_passe }}"
+  data-poste="{{ poste }}">
+
+  <section class="carte telephone">
+    <h1>{{ poste | replace("poste", "Poste ") }}</h1>
+    <p class="etat" id="etat" data-etat="hors_ligne">Connexion au serveur téléphonique…</p>
+    <div class="boutons">
+      <button type="button" id="decrocher" hidden>Décrocher</button>
+      <button type="button" id="raccrocher" class="danger" hidden>Raccrocher</button>
+      <button type="button" id="muet" class="secondaire" hidden>Couper le micro</button>
+      <button type="button" id="pause" class="secondaire">Se mettre en pause</button>
+      <button type="button" id="reprendre" class="secondaire" hidden>Reprendre les appels</button>
+    </div>
+    <p id="appel-info" class="note"></p>
+    <audio id="audio-distant" autoplay></audio>
+
+    <form id="qualification" class="qualification" hidden>
+      <p><strong>Issue de l'appel</strong> (obligatoire avant le suivant)</p>
+      {% for code, libelle in qualifications.items() %}
+      <label class="choix"><input type="radio" name="qualification" value="{{ code }}" required> {{ libelle }}</label>
+      {% endfor %}
+      <button type="submit">Enregistrer</button>
+    </form>
+    <form method="post" action="/tableau-de-bord/agent/liberer" class="liberer">
+      <button type="submit" class="secondaire">Libérer le poste</button>
+    </form>
+  </section>
+
+  <section class="carte">
+    <h2>Réponses validées</h2>
+    <form id="recherche" class="filtres">
+      <label>Question du citoyen <input name="q" type="search" autocomplete="off" required></label>
+      <label>Langue
+        <select name="langue">{% for l in langues %}<option value="{{ l.code }}">{{ l.nom }}</option>{% endfor %}</select>
+      </label>
+      <button type="submit">Chercher</button>
+    </form>
+    <div id="resultats"></div>
+    <p class="note">Lisez la réponse validée telle quelle. Si aucune ne convient, qualifiez l'appel « Question transmise au BCR ».</p>
+  </section>
+
+  <section class="carte">
+    <h2>Signalement</h2>
+    <form id="signalement">
+      <label>Type
+        <select name="type" required>{% for code, libelle in types.items() %}<option value="{{ code }}">{{ libelle }}</option>{% endfor %}</select>
+      </label>
+      <label>Territoire
+        <select name="territoire_code" required>
+          <option value="">— Choisir —</option>
+          {% for p in provinces %}{% if p.territoires %}<optgroup label="{{ p.nom }}">{% for t in p.territoires %}<option value="{{ t.code }}">{{ t.nom }}</option>{% endfor %}</optgroup>{% endif %}{% endfor %}
+        </select>
+      </label>
+      <label>Quartier ou village <input name="localite" maxlength="120"></label>
+      <label>Précisions (ni nom ni numéro) <textarea name="description" maxlength="500" rows="2"></textarea></label>
+      <button type="submit">Enregistrer le signalement</button>
+      <p id="signalement-resultat" class="note" role="status"></p>
+    </form>
+  </section>
+
+  <section class="carte">
+    <h2>Rappels à faire <button type="button" id="actualiser-rappels" class="secondaire petit">Actualiser</button></h2>
+    <p class="note">Le numéro n'apparaît qu'une fois le rappel pris en charge, et il est effacé dès que vous le clôturez.</p>
+    <table><tbody id="rappels"></tbody></table>
+  </section>
+</div>
+<script src="/tableau-de-bord/statique/jssip.min.js"></script>
+<script src="/tableau-de-bord/statique/agent.js"></script>
+{% endif %}
+{% endblock %}

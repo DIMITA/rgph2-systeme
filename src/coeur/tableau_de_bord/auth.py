@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 import httpx
-from fastapi import HTTPException, Request
+from fastapi import Depends, HTTPException, Request
 
 from coeur.config import parametres
 
@@ -64,3 +64,28 @@ def utilisateur_connecte(request: Request) -> Utilisateur:
     if not session.get("email"):
         raise HTTPException(303, headers={"Location": f"{CHEMIN}/connexion"})
     return Utilisateur(email=session["email"], role=session.get("role"))
+
+
+# Espaces du tableau de bord et leur page d'accueil, dans l'ordre de préférence.
+ACCUEILS = {"pilotage": CHEMIN, "agents": f"{CHEMIN}/agent", "qualite": f"{CHEMIN}/qualite"}
+
+
+def espaces(role: str | None) -> list[str]:
+    roles = parametres().roles_par_espace()
+    return [espace for espace in ACCUEILS if role in roles[espace]]
+
+
+def accueil(role: str | None) -> str:
+    accessibles = espaces(role)
+    return ACCUEILS[accessibles[0]] if accessibles else f"{CHEMIN}/connexion"
+
+
+def exiger(espace: str):
+    """Dépendance : réserve une page à un espace ; sinon renvoie vers l'accueil du rôle."""
+
+    def verifier(utilisateur: Utilisateur = Depends(utilisateur_connecte)) -> Utilisateur:
+        if espace not in espaces(utilisateur.role):
+            raise HTTPException(303, headers={"Location": accueil(utilisateur.role)})
+        return utilisateur
+
+    return verifier

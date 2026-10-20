@@ -9,6 +9,8 @@ leur présentation dans Directus et crée les rôles et droits :
 - Lecteur : consultation seule.
 - Tableau de bord : aucun accès aux contenus ; sert seulement à se connecter au
   tableau de bord du Ministère (ex. comptes UNFPA).
+- Agent centre d'appels : console des agents (téléphone, FAQ, signalements, rappels).
+- Superviseur qualité : écoute des conversations enregistrées (chaque écoute est journalisée).
 
 Idempotent : on peut le relancer après chaque mise à jour (les droits des trois
 rôles sont recréés à l'identique).
@@ -148,6 +150,8 @@ ROLES = {
     "Lecteur": ("visibility", "Consultation seule.", droits_lecteur),
     "Tableau de bord": ("monitoring", "Accès au tableau de bord du Ministère, pas aux contenus.",
                         lambda: []),
+    "Agent centre d'appels": ("support_agent", "Console des agents du numéro vert.", lambda: []),
+    "Superviseur qualité": ("headphones", "Écoute des conversations enregistrées.", lambda: []),
 }
 
 

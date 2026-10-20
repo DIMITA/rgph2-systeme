@@ -9,6 +9,7 @@ import hashlib
 import hmac
 import os
 import shutil
+import socket
 from pathlib import Path
 
 from audio import convertir, dossier_rgph, source_enregistree, synthetiser
@@ -43,7 +44,7 @@ def mot_de_passe_poste(secret: str, poste: str) -> str:
     return hmac.new(secret.encode(), poste.encode(), hashlib.sha256).hexdigest()[:32]
 
 
-def section_postes(secret: str, nombre: int) -> str:
+def section_postes(secret: str, nombre: int, domaine: str) -> str:
     blocs = []
     for n in range(1, nombre + 1):
         poste = f"poste{n}"
@@ -51,9 +52,16 @@ def section_postes(secret: str, nombre: int) -> str:
 type=endpoint
 context=postes
 disallow=all
-allow=opus,ulaw,alaw
+; G.711 seulement : comme l'opérateur, sans transcodage (pas de module Opus libre dans Asterisk).
+allow=alaw,ulaw
 webrtc=yes
 dtls_auto_generate_cert=yes
+; Le navigateur annonce un contact fictif : on réutilise la connexion WebSocket ouverte.
+rewrite_contact=yes
+rtp_symmetric=yes
+force_rport=yes
+; Domaine valide dans les messages envoyés au navigateur (JsSIP refuse un nom de conteneur).
+from_domain={domaine}
 auth={poste}
 aors={poste}
 callerid="Poste {n}" <{poste}>
@@ -82,7 +90,7 @@ def section_simulateur(mot_de_passe: str) -> str:
 type=endpoint
 context=simulateur
 disallow=all
-allow=ulaw,alaw,opus
+allow=alaw,ulaw
 direct_media=no
 rtp_symmetric=yes
 force_rport=yes
@@ -157,6 +165,24 @@ def adresse_externe() -> str:
             "local_net=10.0.0.0/8\nlocal_net=172.16.0.0/12\nlocal_net=192.168.0.0/16")
 
 
+def appel_sortant() -> str:
+    """Rappels : par l'opérateur ; à défaut, vers le téléphone logiciel de test."""
+    if env("OPERATEUR_SIP_HOTE"):
+        return "Dial(PJSIP/${EXTEN}@operateur,60)"
+    if env("SIMULATEUR_MDP"):
+        return "Dial(PJSIP/simulateur,60)  ; pas d'opérateur : rappel sonne sur le simulateur"
+    return "Playback(rgph/hors_service)  ; pas d'opérateur configuré"
+
+
+def ice_hotes() -> str:
+    """Remplace l'adresse du conteneur par l'adresse publique dans les candidats ICE (WebRTC)."""
+    adresse = env("SIP_ADRESSE_EXTERNE")
+    if not adresse:
+        return "; SIP_ADRESSE_EXTERNE vide : candidats ICE non modifiés."
+    interne = socket.gethostbyname(socket.gethostname())
+    return f"[ice_host_candidates]\n{interne} => {adresse}"
+
+
 def membres_file(nombre: int) -> str:
     return "\n".join(
         f"member => PJSIP/poste{n},0,Poste {n},PJSIP/poste{n}" for n in range(1, nombre + 1)
@@ -175,7 +201,7 @@ def valeurs() -> dict[str, str]:
         "API_URL": env("API_URL", "http://api:8000"),
         "CLE_API": env("CLE_API_CENTRE_ECOUTE"),
         "RAPPEL_APRES_SECONDES": env("RAPPEL_APRES_SECONDES", "180"),
-        "POSTES": section_postes(secret, nombre),
+        "POSTES": section_postes(secret, nombre, env("SIP_DOMAINE", "rgph2.local")),
         "SIMULATEUR": section_simulateur(env("SIMULATEUR_MDP")),
         "OPERATEUR": section_operateur(),
         "ADRESSE_EXTERNE": adresse_externe(),
@@ -183,6 +209,8 @@ def valeurs() -> dict[str, str]:
         "RTP_DEBUT": env("RTP_DEBUT", "10000"),
         "RTP_FIN": env("RTP_FIN", "10050"),
         "STUN": f"stunaddr={stun}" if stun else "; pas de serveur STUN",
+        "APPEL_SORTANT": appel_sortant(),
+        "ICE_HOTES": ice_hotes(),
     }
 
 

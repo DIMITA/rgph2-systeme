@@ -1,13 +1,13 @@
 """Règles du centre d'appels : menu du SVI, suivi des appels, rappels, enregistrements."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone, tzinfo
 from pathlib import Path
 
 from cryptography.fernet import Fernet
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
-from coeur.centre_appels.modeles import Appel, Enregistrement, Rappel
+from coeur.centre_appels.modeles import Appel, Ecoute, Enregistrement, Rappel
 from coeur.centre_appels.schemas import ElementMenu, EvenementAppel, LangueMenu, MenuSvi
 from coeur.commun import Canal
 from coeur.config import Parametres, parametres
@@ -17,6 +17,7 @@ from coeur.connaissances.depot import Corpus
 from coeur.connaissances.modeles import STATUT_PUBLIE, Contenu
 from coeur.connaissances.schemas import ReponseSortie
 from coeur.interactions import service as interactions
+from coeur.statistiques.service import bornes_journees, masquer
 
 NB_TOUCHES_MENU = 8
 
@@ -151,6 +152,36 @@ def _journaliser(session: Session, appel: Appel, texte: str, reponse: ReponseSor
 
 # --- Rappels ----------------------------------------------------------------------------
 
+def rappels_ouverts(session: Session, limite: int = 100) -> list[Rappel]:
+    """Demandes à traiter, les plus anciennes d'abord (sans déchiffrer les numéros)."""
+    return list(session.scalars(
+        select(Rappel).where(Rappel.statut.in_(("a_rappeler", "en_cours")))
+        .order_by(Rappel.cree_a, Rappel.id).limit(limite)
+    ))
+
+
+class RappelDejaPris(Exception):
+    pass
+
+
+def prendre_rappel(session: Session, rappel_id: int, agent: str) -> str | None:
+    """Réserve le rappel à l'agent et lui révèle le numéro. None si le rappel n'existe plus.
+
+    Verrou de ligne : deux agents ne peuvent pas prendre le même rappel.
+    """
+    rappel = session.scalar(
+        select(Rappel).where(Rappel.id == rappel_id).with_for_update()
+    )
+    if rappel is None or rappel.numero_chiffre is None:
+        return None
+    if rappel.statut == "en_cours" and rappel.traite_par != agent:
+        raise RappelDejaPris(rappel.traite_par)
+    rappel.statut, rappel.traite_par = "en_cours", agent
+    numero = dechiffrer_numero(rappel.numero_chiffre)
+    session.commit()
+    return numero
+
+
 def traiter_rappel(session: Session, rappel_id: int, statut: str, agent: str) -> Rappel | None:
     """Clôt une demande de rappel et efface aussitôt le numéro."""
     rappel = session.get(Rappel, rappel_id)
@@ -197,3 +228,71 @@ def supprimer_enregistrements_avant(session: Session, avant: datetime) -> int:
 
 def purger_enregistrements(session: Session, jours: int) -> int:
     return supprimer_enregistrements_avant(session, _maintenant() - timedelta(days=jours))
+
+
+def chemin_enregistrement(enregistrement: Enregistrement) -> Path:
+    # Seul le nom est utilisé (validé à la réception) : aucun accès hors du dossier.
+    return Path(parametres().dossier_enregistrements) / Path(enregistrement.fichier).name
+
+
+def lister_enregistrements(
+    session: Session, limite: int = 50, decalage: int = 0
+) -> list[tuple[Enregistrement, Appel | None]]:
+    lignes = session.execute(
+        select(Enregistrement, Appel)
+        .outerjoin(Appel, Appel.reference == Enregistrement.appel_reference)
+        .order_by(Enregistrement.cree_a.desc(), Enregistrement.id.desc())
+        .limit(limite).offset(decalage)
+    ).all()
+    return [(e, a) for e, a in lignes]
+
+
+def journaliser_ecoute(session: Session, enregistrement: Enregistrement, utilisateur: str) -> None:
+    session.add(Ecoute(enregistrement_id=enregistrement.id, fichier=enregistrement.fichier,
+                       utilisateur=utilisateur))
+    session.commit()
+
+
+def dernieres_ecoutes(session: Session, limite: int = 20) -> list[Ecoute]:
+    return list(session.scalars(select(Ecoute).order_by(Ecoute.ecoute_a.desc()).limit(limite)))
+
+
+# --- Console des agents -----------------------------------------------------------------
+
+def appel_en_cours(session: Session, poste: str) -> Appel | None:
+    return session.scalar(
+        select(Appel)
+        .where(Appel.poste == poste, Appel.decroche_a.is_not(None), Appel.fin_a.is_(None))
+        .order_by(Appel.decroche_a.desc()).limit(1)
+    )
+
+
+def qualifier(session: Session, reference: str, qualification: str) -> Appel | None:
+    appel = session.scalar(select(Appel).where(Appel.reference == reference))
+    if appel is not None:
+        appel.qualification = qualification
+        session.commit()
+    return appel
+
+
+# --- Statistiques -----------------------------------------------------------------------
+
+def statistiques_appels(session: Session, depuis: date | None, jusqu_a: date | None,
+                        fuseau: tzinfo, seuil: int) -> dict:
+    """Appels reçus, décrochés, abandonnés, rappels demandés, attente moyenne (secondes)."""
+    attente = func.extract("epoch", Appel.decroche_a - Appel.entree_file_a)
+    recus, decroches, abandons, rappels, moyenne = session.execute(
+        select(
+            func.count(),
+            func.count().filter(Appel.decroche_a.is_not(None)),
+            func.count().filter(Appel.entree_file_a.is_not(None), Appel.decroche_a.is_(None),
+                                Appel.rappel_demande.is_(False), Appel.fin_a.is_not(None)),
+            func.count().filter(Appel.rappel_demande.is_(True)),
+            func.avg(attente).filter(Appel.entree_file_a.is_not(None)),
+        ).where(*bornes_journees(Appel.debut, depuis, jusqu_a, fuseau))
+    ).one()
+    return {
+        "recus": masquer(recus, seuil), "decroches": masquer(decroches, seuil),
+        "abandons": masquer(abandons, seuil), "rappels": masquer(rappels, seuil),
+        "attente_moyenne": round(moyenne) if moyenne is not None and decroches >= seuil else None,
+    }

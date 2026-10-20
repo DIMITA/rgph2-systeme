@@ -12,9 +12,13 @@
   <a class="marque" href="/tableau-de-bord">RGPH-2 · Tableau de bord</a>
   {% if utilisateur %}
   <nav>
+    {% if "pilotage" in espaces %}
     <a href="/tableau-de-bord">Synthèse</a>
     <a href="/tableau-de-bord/escalades">Questions sans réponse</a>
     <a href="/tableau-de-bord/signalements">Signalements</a>
+    {% endif %}
+    {% if "agents" in espaces %}<a href="/tableau-de-bord/agent">Console agent</a>{% endif %}
+    {% if "qualite" in espaces %}<a href="/tableau-de-bord/qualite">Écoute qualité</a>{% endif %}
   </nav>
   <form class="session" method="post" action="/tableau-de-bord/deconnexion">
     <span>{{ utilisateur.email }}</span> <button type="submit">Se déconnecter</button>

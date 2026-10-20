@@ -28,6 +28,15 @@
   <div class="chiffre"><span class="valeur">{{ nb(signalements_total.nb_signalements, seuil) if signalements_total else 0 }}</span><span>signalements</span></div>
 </div>
 
+<h2 class="section">Centre d'appels</h2>
+<div class="chiffres">
+  <div class="chiffre"><span class="valeur">{{ nb(appels.recus, seuil) }}</span><span>appels reçus</span></div>
+  <div class="chiffre"><span class="valeur">{{ nb(appels.decroches, seuil) }}</span><span>décrochés par un agent</span></div>
+  <div class="chiffre"><span class="valeur">{{ nb(appels.abandons, seuil) }}</span><span>abandons en file d'attente</span></div>
+  <div class="chiffre"><span class="valeur">{{ nb(appels.rappels, seuil) }}</span><span>rappels demandés</span></div>
+  <div class="chiffre"><span class="valeur">{% if appels.attente_moyenne is not none %}{{ appels.attente_moyenne }} s{% else %}—{% endif %}</span><span>attente moyenne avant décroché</span></div>
+</div>
+
 <div class="grille">
   {{ repartition("Questions par canal", repartitions.canal, "nb_interactions", noms, seuil, maximum, escalades=true) }}
   {{ repartition("Questions par langue", repartitions.langue, "nb_interactions", noms, seuil, maximum, escalades=true) }}

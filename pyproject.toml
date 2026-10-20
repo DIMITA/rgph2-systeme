@@ -25,6 +25,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+# Vérification de la console des agents dans un vrai navigateur (outils/verifier_console_agent.py).
+e2e = ["playwright>=1.48"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

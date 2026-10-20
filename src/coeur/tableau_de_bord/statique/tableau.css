@@ -1,6 +1,8 @@
 /* Tableau de bord RGPH-2 : polices système, aucune ressource externe. */
 :root{--bleu:#0b4f8a;--bleu-clair:#e8f0f8;--jaune:#f7d117;--texte:#1a1a1a;--gris:#5c5c5c;--trait:#d9d9d9;--fond:#f5f6f8;--erreur:#a40000}
 *{box-sizing:border-box}
+/* L'attribut hidden doit toujours l'emporter (boutons de la console). */
+[hidden]{display:none !important}
 body{margin:0;font:0.95rem/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--texte);background:var(--fond)}
 header{background:var(--bleu);border-bottom:4px solid var(--jaune);padding:.6rem 1.2rem;display:flex;flex-wrap:wrap;gap:.5rem 1.5rem;align-items:center}
 header a{color:#fff}
@@ -38,3 +40,24 @@ form.statut button{padding:.3rem .6rem;font-size:.8rem}
 .erreur{color:var(--erreur);font-weight:600}
 .note,.vide{color:var(--gris);font-size:.85rem}
 .pages{display:flex;gap:1rem}
+h2.section{margin:1.5rem 0 .6rem}
+button.secondaire{background:#fff;color:var(--bleu);border:1px solid var(--bleu)}
+button.danger{background:#b3261e}
+button.petit{padding:.2rem .6rem;font-size:.8rem;margin-left:.6rem;vertical-align:middle}
+.console{display:grid;grid-template-columns:repeat(auto-fit,minmax(22rem,1fr));gap:1rem;align-items:start}
+.console .carte{margin:0}
+.console label{display:flex;flex-direction:column;font-size:.85rem;color:var(--gris);gap:.2rem;margin:.5rem 0}
+.console label.choix{flex-direction:row;color:var(--texte);font-size:.95rem;gap:.5rem}
+.console textarea,.console input:not([type=radio]),.console select{width:100%}
+.boutons{display:flex;flex-wrap:wrap;gap:.5rem;margin:.6rem 0}
+.etat{font-weight:700;padding:.5rem .7rem;border-radius:4px;background:#eee}
+.etat[data-etat=disponible]{background:#e3f4e6;color:#1d6b2c}
+.etat[data-etat=sonnerie]{background:#fff4d6;color:#7a5600}
+.etat[data-etat=communication]{background:var(--bleu-clair);color:var(--bleu)}
+.etat[data-etat=hors_ligne]{background:#fbe4e4;color:#a40000}
+.etat[data-etat=qualification]{background:#fff4d6;color:#7a5600}
+.qualification{border-top:1px solid var(--trait);margin-top:.8rem;padding-top:.6rem}
+.liberer{margin-top:1rem}
+#resultats details{border-bottom:1px solid var(--trait);padding:.4rem 0}
+#resultats summary{cursor:pointer;font-weight:600}
+td audio{width:16rem;max-width:100%}

@@ -45,6 +45,20 @@ Une fois la liaison obtenue, renseigner dans `.env` les variables `OPERATEUR_SIP
 - **Automatiquement** : avec `TELEPHONIE_SIMULATION=true`, `python outils/verifier_telephonie.py` passe trois appels simulés (réponse du SVI, rappel, agent) et contrôle le résultat, y compris l'absence de numéro en clair. Durée : environ 2 min 30.
 - **À l'oreille** : renseigner `SIMULATEUR_MDP`, puis configurer un téléphone logiciel (MicroSIP, Linphone) avec l'utilisateur `simulateur`, ce mot de passe et le serveur `localhost:5060`. Appeler n'importe quel numéro : on suit le parcours d'un vrai appel.
 
+## Postes des agents (WebRTC)
+
+Les agents téléphonent depuis la console du tableau de bord (`/tableau-de-bord/agent`). Le navigateur se connecte à Asterisk en WebSocket (port 8088) avec le compte du poste. Le mot de passe est dérivé de `SECRET_POSTES` et remis par le cœur à l'agent connecté.
+
+Trois réglages sont indispensables, et chacun a été vérifié par `outils/verifier_console_agent.py` :
+
+- **G.711 seulement** (`allow=alaw,ulaw`) : Asterisk n'a pas de transcodeur Opus libre, et un appel négocié en Opus serait coupé au décroché.
+- **`rewrite_contact=yes`** : le navigateur annonce une adresse de contact fictive. Sans cette option, Asterisk ne le joint pas et le poste reste « indisponible ».
+- **Nom d'hôte fixe et valide** (`hostname: telephonie` dans `docker-compose.yml`) et **`from_domain`** : JsSIP rejette les messages qui portent le nom aléatoire d'un conteneur.
+
+L'audio passe en UDP (ports 10000-10050). `SIP_ADRESSE_EXTERNE` est annoncée aux navigateurs à la place de l'adresse interne du conteneur : `127.0.0.1` sur un poste de développement, l'adresse IP publique en production.
+
+**En production**, le port 8088 doit être publié **en `wss://` derrière le proxy HTTPS**, car les navigateurs refusent le micro hors HTTPS. L'adresse correspondante va dans `ASTERISK_WS_URL`.
+
 ## Données personnelles
 
 - **Pas de CDR ni de CEL** : ils garderaient les numéros en clair. Le journal de la file (`queue_log`) et les messages détaillés (`verbose`) sont aussi désactivés pour la même raison.

@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from coeur.base import session_db
 from coeur.config import Parametres, parametres
+from coeur.centre_appels.service import statistiques_appels
 from coeur.connaissances.service import langues_actives
 from coeur.interactions import service as interactions
 from coeur.limiteur import LimiteurDebit
@@ -26,8 +27,10 @@ from coeur.tableau_de_bord.auth import (
     CHEMIN,
     Authentificateur,
     Utilisateur,
+    accueil,
     authentificateur,
-    utilisateur_connecte,
+    espaces,
+    exiger,
 )
 from coeur.territoires.service import lister as lister_territoires
 
@@ -64,6 +67,9 @@ CANAUX = {
 }
 
 
+PILOTAGE = exiger("pilotage")
+
+
 @lru_cache
 def limiteur_connexion() -> LimiteurDebit:
     """10 tentatives de connexion par quart d'heure et par adresse IP."""
@@ -82,7 +88,8 @@ def _page(request: Request, gabarit: str, utilisateur: Utilisateur | None = None
     reponse = gabarits.TemplateResponse(
         request,
         gabarit,
-        {"utilisateur": utilisateur, "seuil": parametres().seuil_secret_statistique, **contexte},
+        {"utilisateur": utilisateur, "espaces": espaces(utilisateur.role) if utilisateur else [],
+         "seuil": parametres().seuil_secret_statistique, **contexte},
         status_code=statut,
     )
     # Données de pilotage : jamais gardées dans un cache (navigateur ou proxy).
@@ -132,7 +139,7 @@ def connexion_envoi(
                      erreur="Votre compte n'a pas accès au tableau de bord.")
     request.session.clear()
     request.session.update({"email": utilisateur.email, "role": utilisateur.role})
-    return RedirectResponse(CHEMIN, status_code=303)
+    return RedirectResponse(accueil(utilisateur.role), status_code=303)
 
 
 @routeur.post("/deconnexion")
@@ -165,7 +172,7 @@ def synthese(
     niveau: NiveauGeo = "province",
     depuis: str | None = None,
     jusqu_a: str | None = None,
-    utilisateur: Utilisateur = Depends(utilisateur_connecte),
+    utilisateur: Utilisateur = Depends(PILOTAGE),
     session: Session = Depends(session_db),
     reglages: Parametres = Depends(parametres),
 ):
@@ -177,6 +184,8 @@ def synthese(
         niveau=niveau, depuis=debut, jusqu_a=fin, total=total,
         signalements_total=donnees["signalements_total"][0] if donnees["signalements_total"] else None,
         repartitions=donnees, noms=_libelles(session), maximum=_maximum,
+        appels=statistiques_appels(session, debut, fin, ZoneInfo(reglages.fuseau_horaire),
+                                   reglages.seuil_secret_statistique),
     )
 
 
@@ -185,7 +194,7 @@ def export_csv(
     niveau: NiveauGeo = "province",
     depuis: str | None = None,
     jusqu_a: str | None = None,
-    _utilisateur: Utilisateur = Depends(utilisateur_connecte),
+    _utilisateur: Utilisateur = Depends(PILOTAGE),
     session: Session = Depends(session_db),
     reglages: Parametres = Depends(parametres),
 ):
@@ -230,7 +239,7 @@ def escalades(
     langue: str | None = None,
     motif: str | None = None,
     page: int = Query(default=1, ge=1),
-    utilisateur: Utilisateur = Depends(utilisateur_connecte),
+    utilisateur: Utilisateur = Depends(PILOTAGE),
     session: Session = Depends(session_db),
 ):
     depuis = datetime.now(timezone.utc) - timedelta(days=JOURS_ESCALADES_FREQUENTES)
@@ -256,7 +265,7 @@ def liste_signalements(
     statut: StatutSignalement | Literal[""] | None = None,
     type: TypeSignalement | Literal[""] | None = None,
     page: int = Query(default=1, ge=1),
-    utilisateur: Utilisateur = Depends(utilisateur_connecte),
+    utilisateur: Utilisateur = Depends(PILOTAGE),
     session: Session = Depends(session_db),
 ):
     lignes = signalements.lister(
@@ -277,7 +286,7 @@ def liste_signalements(
 def changer_statut(
     signalement_id: int,
     statut: StatutSignalement = Form(),
-    _utilisateur: Utilisateur = Depends(utilisateur_connecte),
+    _utilisateur: Utilisateur = Depends(PILOTAGE),
     session: Session = Depends(session_db),
 ):
     if signalements.changer_statut(session, signalement_id, statut) is None:
