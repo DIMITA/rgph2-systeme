@@ -76,6 +76,9 @@ class Parametres(BaseSettings):
     dossier_enregistrements: str = "/donnees/enregistrements"
     conservation_enregistrements_jours: int = 90
     conservation_rappels_jours: int = 7
+    # Un rappel pris par un agent et non clôturé lui reste réservé ce temps-là, puis
+    # redevient disponible pour les autres agents.
+    rappel_reservation_minutes: int = 30
     # Adresse WebSocket d'Asterisk vue du navigateur des agents (wss:// en production).
     asterisk_ws_url: str = "ws://localhost:8088/ws"
     # Domaine SIP des postes (indifférent pour Asterisk, qui identifie par l'utilisateur).

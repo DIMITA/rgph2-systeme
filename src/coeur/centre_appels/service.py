@@ -165,8 +165,20 @@ class RappelDejaPris(Exception):
     pass
 
 
-def prendre_rappel(session: Session, rappel_id: int, agent: str) -> str | None:
-    """Réserve le rappel à l'agent et lui révèle le numéro. None si le rappel n'existe plus.
+def reservation_active(rappel: Rappel, duree: timedelta) -> bool:
+    """Vrai si un agent a pris le rappel il y a moins de `duree`.
+
+    Passé ce délai sans clôture (agent parti, navigateur fermé), la réservation tombe :
+    un autre agent peut reprendre le rappel.
+    """
+    return (rappel.statut == "en_cours" and rappel.pris_a is not None
+            and rappel.pris_a > _maintenant() - duree)
+
+
+def prendre_rappel(session: Session, rappel_id: int, agent: str,
+                   reservation: timedelta) -> str | None:
+    """Réserve le rappel à l'agent pour `reservation` et lui révèle le numéro.
+    None si le rappel n'existe plus.
 
     Verrou de ligne : deux agents ne peuvent pas prendre le même rappel.
     """
@@ -175,9 +187,9 @@ def prendre_rappel(session: Session, rappel_id: int, agent: str) -> str | None:
     )
     if rappel is None or rappel.numero_chiffre is None:
         return None
-    if rappel.statut == "en_cours" and rappel.traite_par != agent:
+    if reservation_active(rappel, reservation) and rappel.traite_par != agent:
         raise RappelDejaPris(rappel.traite_par)
-    rappel.statut, rappel.traite_par = "en_cours", agent
+    rappel.statut, rappel.traite_par, rappel.pris_a = "en_cours", agent, _maintenant()
     numero = dechiffrer_numero(rappel.numero_chiffre)
     session.commit()
     return numero

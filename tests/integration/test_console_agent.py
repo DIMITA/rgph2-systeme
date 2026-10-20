@@ -205,6 +205,32 @@ def test_prendre_et_cloturer_un_rappel(agent, session_admin):
     assert agent.get("/tableau-de-bord/agent/rappels").json() == []
 
 
+def test_rappel_oublie_repris_par_un_autre_agent(agent, session_admin):
+    """Un agent prend un rappel sans le clôturer : la réservation tombe après le délai."""
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import update
+
+    from coeur.main import app
+
+    evenement(agent, type="rappel", appel="a1", numero="0812345678")
+    [rappel] = agent.get("/tableau-de-bord/agent/rappels").json()
+    agent.post(f"/tableau-de-bord/agent/rappels/{rappel['id']}/prendre")
+    il_y_a_une_heure = datetime.now(timezone.utc) - timedelta(hours=1)
+    session_admin.execute(update(Rappel).where(Rappel.id == rappel["id"])
+                          .values(pris_a=il_y_a_une_heure))
+    session_admin.commit()
+
+    with TestClient(app) as autre:
+        connecter(autre, "agent2@bcr.cd")
+        [vu] = autre.get("/tableau-de-bord/agent/rappels").json()
+        assert vu["statut"] == "a_rappeler"
+        r = autre.post(f"/tableau-de-bord/agent/rappels/{rappel['id']}/prendre")
+        assert r.json() == {"numero": "243812345678"}
+    # Le premier agent ne peut plus le reprendre : il est réservé au second.
+    assert agent.post(f"/tableau-de-bord/agent/rappels/{rappel['id']}/prendre").status_code == 409
+
+
 def test_cloture_invalide(agent):
     evenement(agent, type="rappel", appel="a1", numero="0812345678")
     [rappel] = agent.get("/tableau-de-bord/agent/rappels").json()

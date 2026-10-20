@@ -61,6 +61,8 @@ class Rappel(Base):
     statut: Mapped[str] = mapped_column(String(16), server_default="a_rappeler")
     traite_a: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     traite_par: Mapped[str | None] = mapped_column(String(255))
+    # Prise en charge par un agent : la réservation tombe après RAPPEL_RESERVATION_MINUTES.
+    pris_a: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Enregistrement(Base):

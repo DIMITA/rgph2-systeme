@@ -523,6 +523,7 @@ python outils/verifier_pile.py
 | `RAPPEL_APRES_SECONDES` | 180 | Attente avant de proposer un rappel |
 | `CONSERVATION_ENREGISTREMENTS_JOURS` | 90 | Durée de conservation des conversations enregistrées |
 | `CONSERVATION_RAPPELS_JOURS` | 7 | Délai au-delà duquel un numéro à rappeler est effacé |
+| `RAPPEL_RESERVATION_MINUTES` | 30 | Durée pendant laquelle un rappel pris et non clôturé reste réservé à son agent |
 | `OPERATEUR_SIP_*`, `SIP_ADRESSE_EXTERNE` | (vide) | Liaison de l'opérateur et adresse publique du serveur, aussi annoncée aux navigateurs des agents (voir [asterisk/LISEZMOI.md](asterisk/LISEZMOI.md)) |
 | `ASTERISK_WS_URL` | ws://localhost:8088/ws | Adresse WebSocket d'Asterisk vue du navigateur des agents (`wss://…` en production) |
 | `SIP_DOMAINE` | rgph2.local | Domaine SIP des postes |
@@ -620,7 +621,7 @@ Pour chaque langue : réponses justes, **fausses** (un autre contenu que le bon 
 - **Limites de débit et anti-doublons** : comptés dans PostgreSQL (tables `UNLOGGED` `coeur.compteurs_debit` et `coeur.memoire_courte`), donc partagés par tous les processus et serveurs. Chaque contrôle coûte un aller-retour à la base ; si la charge du pic le rend trop coûteux, `coeur/limiteur.py` est le seul fichier à changer (Redis par exemple). La fenêtre glissante est estimée à partir de deux fenêtres fixes, et une requête refusée compte aussi : insister prolonge le blocage.
 - **Messages vocaux** : tant qu'ils ne sont pas enregistrés, une voix de synthèse française provisoire les remplace, y compris pour les autres langues.
 - **Postes partagés** : un poste ne sert qu'à un agent à la fois. Un second agent qui prend le même poste déconnecte le premier.
-- **Rappel resté « en cours »** : si l'agent qui l'a pris ne le clôture pas, le rappel reste bloqué jusqu'à l'expiration automatique (7 jours). L'administrateur peut le clôturer depuis son propre compte agent.
+- **Rappel resté « en cours »** : si l'agent qui l'a pris ne le clôture pas, le rappel lui reste réservé `RAPPEL_RESERVATION_MINUTES` (30 par défaut), puis redevient disponible pour les autres agents.
 - **Codecs** : postes et opérateur en G.711 (A-law, µ-law), sans transcodage. Asterisk n'a pas de module Opus libre.
 - **Sessions USSD rejouées** : le menu est recalculé à chaque échange à partir de la saisie cumulée. Il ne dépend donc d'aucune mémoire de session, et une demande répétée par la passerelle ne crée pas de doublon pendant 5 minutes. Ce format est celui de la plupart des agrégateurs ; un opérateur qui n'envoie que la dernière saisie demandera une petite route d'adaptation.
 - **Textes USSD et SMS** : en français, avec une proposition en lingala à relire. Les autres langues affichent les menus en français, mais servent les réponses validées dans leur langue.

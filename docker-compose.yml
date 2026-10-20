@@ -28,6 +28,7 @@ x-env-coeur: &env-coeur
   DOSSIER_ENREGISTREMENTS: /donnees/enregistrements
   CONSERVATION_ENREGISTREMENTS_JOURS: ${CONSERVATION_ENREGISTREMENTS_JOURS:-90}
   CONSERVATION_RAPPELS_JOURS: ${CONSERVATION_RAPPELS_JOURS:-7}
+  RAPPEL_RESERVATION_MINUTES: ${RAPPEL_RESERVATION_MINUTES:-30}
   # Adresse WebSocket d'Asterisk vue du navigateur des agents (wss://… en production).
   ASTERISK_WS_URL: ${ASTERISK_WS_URL:-ws://localhost:8088/ws}
   SIP_DOMAINE: ${SIP_DOMAINE:-rgph2.local}
