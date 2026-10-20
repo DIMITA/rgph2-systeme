@@ -1,5 +1,11 @@
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from coeur.commun import Canal
 from coeur.config import Parametres
+from coeur.confidentialite.service import empreinte_telephone
 from coeur.connaissances.depot import Corpus
+from coeur.connaissances.modeles import Langue
 from coeur.connaissances.moteur import decider, demande_humain
 from coeur.connaissances.schemas import (
     MESSAGE_ESCALADE,
@@ -7,6 +13,7 @@ from coeur.connaissances.schemas import (
     MotifEscalade,
     ReponseSortie,
 )
+from coeur.interactions import service as interactions
 
 
 def texte_servi(corpus: Corpus, contenu_id: int, langue: str, langue_repli: str) -> ContenuSortie | None:
@@ -47,3 +54,36 @@ def repondre(corpus: Corpus, texte: str, langue: str, reglages: Parametres) -> R
     if contenu is None:
         return escalade("traduction_indisponible", decision.score)
     return ReponseSortie(type="reponse", contenu=contenu, score=decision.score)
+
+
+def traiter_question(
+    session: Session,
+    corpus: Corpus,
+    reglages: Parametres,
+    *,
+    canal: Canal,
+    texte: str,
+    langue: str,
+    territoire_code: str | None = None,
+    telephone: str | None = None,
+) -> ReponseSortie:
+    """Répond puis journalise l'échange. Utilisé par l'API et par le portail web."""
+    reponse = repondre(corpus, texte, langue, reglages)
+    interactions.enregistrer(
+        session,
+        canal=canal,
+        texte=texte,
+        langue_demandee=langue,
+        territoire_code=territoire_code,
+        usager_empreinte=(
+            empreinte_telephone(telephone, reglages.pepper_telephone) if telephone else None
+        ),
+        reponse=reponse,
+    )
+    return reponse
+
+
+def langues_actives(session: Session) -> list[Langue]:
+    """Langues proposées aux citoyens, le français en premier."""
+    requete = select(Langue).where(Langue.active).order_by(Langue.code != "fr", Langue.nom)
+    return list(session.scalars(requete))

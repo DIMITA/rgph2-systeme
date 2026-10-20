@@ -4,11 +4,9 @@ from sqlalchemy.orm import Session
 from coeur.base import session_db
 from coeur.commun import Canal
 from coeur.config import Parametres, parametres
-from coeur.confidentialite.service import empreinte_telephone
 from coeur.connaissances import service
 from coeur.connaissances.depot import Corpus, cache
 from coeur.connaissances.schemas import ContenuSortie, QuestionEntree, ReponseSortie
-from coeur.interactions import service as interactions
 from coeur.securite import canal_appelant
 from coeur.territoires.service import territoire_existe
 
@@ -43,21 +41,10 @@ def poser_question(
     if entree.territoire_code and not territoire_existe(session, entree.territoire_code):
         raise HTTPException(ENTITE_INVALIDE, "Territoire inconnu")
 
-    reponse = service.repondre(corpus, entree.texte, entree.langue, reglages)
-    interactions.enregistrer(
-        session,
-        canal=canal,
-        texte=entree.texte,
-        langue_demandee=entree.langue,
-        territoire_code=entree.territoire_code,
-        usager_empreinte=(
-            empreinte_telephone(entree.telephone, reglages.pepper_telephone)
-            if entree.telephone
-            else None
-        ),
-        reponse=reponse,
+    return service.traiter_question(
+        session, corpus, reglages, canal=canal, texte=entree.texte, langue=entree.langue,
+        territoire_code=entree.territoire_code, telephone=entree.telephone,
     )
-    return reponse
 
 
 @routeur.get("/faq", response_model=list[ContenuSortie])

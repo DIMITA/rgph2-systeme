@@ -36,6 +36,13 @@ class Parametres(BaseSettings):
     cache_contenus_secondes: int = 60
     langue_par_defaut: str = "fr"
 
+    # Portail web
+    # Vide tant que le numéro n'est pas attribué : le portail n'en affiche alors aucun.
+    numero_vert: str = ""
+    # Limites par adresse IP (gardées en mémoire, jamais enregistrées).
+    portail_questions_par_minute: int = 20
+    portail_signalements_par_heure: int = 5
+
     def cles_par_canal(self) -> dict[str, Canal]:
         """Associe chaque clé d'API au canal qu'elle identifie."""
         resultat: dict[str, Canal] = {}

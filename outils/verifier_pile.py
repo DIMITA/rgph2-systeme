@@ -20,7 +20,8 @@ import httpx
 
 DIRECTUS = os.environ.get("DIRECTUS_URL", "http://localhost:8055")
 API = os.environ.get("API_URL", "http://localhost:8000")
-QUESTION = "Quelle est la couleur du gilet des agents de vérification ?"
+# Question sans rapport avec la FAQ, rendue unique par un mot aléatoire (voir main).
+QUESTION_MODELE = "Procédure technique de contrôle {}"
 ECHECS: list[str] = []
 
 
@@ -45,8 +46,8 @@ def cle_api_web() -> str:
     sys.exit("CLES_API ne contient pas de clé pour le canal web.")
 
 
-def demander(cle: str) -> dict:
-    r = httpx.post(f"{API}/v1/questions", json={"texte": QUESTION}, headers={"X-Cle-API": cle})
+def demander(cle: str, question: str) -> dict:
+    r = httpx.post(f"{API}/v1/questions", json={"texte": question}, headers={"X-Cle-API": cle})
     r.raise_for_status()
     return r.json()
 
@@ -55,6 +56,7 @@ def main() -> None:
     admin = connexion(os.environ["DIRECTUS_ADMIN_EMAIL"], os.environ["DIRECTUS_ADMIN_MDP"])
     roles = {r["name"]: r["id"] for r in admin.get("/roles").json()["data"]}
     suffixe = secrets.token_hex(4)
+    question = QUESTION_MODELE.format("zq" + suffixe)
     mdp = secrets.token_urlsafe(16)
     utilisateurs = {}
     for nom in ("Rédacteur", "Validateur BCR"):
@@ -71,12 +73,12 @@ def main() -> None:
         verifier(r.status_code == 200, "le Rédacteur crée un contenu en brouillon")
         contenu_id = r.json()["data"]["id"]
         r = redacteur.post("/items/contenus_traductions", json={
-            "contenu_id": contenu_id, "langue_code": "fr", "question": QUESTION,
+            "contenu_id": contenu_id, "langue_code": "fr", "question": question,
             "reponse": "Réponse de vérification technique.", "statut": "brouillon",
         })
         verifier(r.status_code == 200, "le Rédacteur ajoute la traduction française")
         traduction_id = r.json()["data"]["id"]
-        verifier(demander(cle)["type"] == "escalade", "l'API ne sert pas le brouillon")
+        verifier(demander(cle, question)["type"] == "escalade", "l'API ne sert pas le brouillon")
 
         print("2. Tentative de publication par le Rédacteur")
         r = redacteur.patch(f"/items/contenus/{contenu_id}", json={"statut": "publie"})
@@ -88,7 +90,7 @@ def main() -> None:
         verifier(r1.status_code == r2.status_code == 200, "le Validateur BCR publie")
         servi = False
         for _ in range(40):  # l'API garde les contenus en cache jusqu'à 60 s
-            reponse = demander(cle)
+            reponse = demander(cle, question)
             if reponse["type"] == "reponse":
                 servi = reponse["contenu"]["contenu_id"] == contenu_id
                 break

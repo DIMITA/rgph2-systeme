@@ -1,6 +1,9 @@
 # RGPH-2 : le cœur du système d'information citoyenne
 
-Ce dépôt contient le **cœur commun** auquel se brancheront les six canaux du RGPH-2 : USSD/SMS, WhatsApp, portail web, kiosques OKAPI, Ambassadeurs et centre d'écoute. Il correspond à la Phase 1, étape 1, de [architecture.md](architecture.md).
+Ce dépôt contient le **cœur commun** auquel se brancheront les six canaux du RGPH-2 : USSD/SMS, WhatsApp, portail web, kiosques OKAPI, Ambassadeurs et centre d'écoute. Il couvre la Phase 1 de [architecture.md](architecture.md) :
+
+- étape 1 : le cœur ;
+- étape 2 : le **portail web et son chatbot**, premier canal branché.
 
 Le cœur fait trois choses :
 
@@ -18,6 +21,7 @@ Les contenus sont rédigés et validés par le Ministère dans **Directus** (le 
 - [Démarrer](#démarrer)
 - [Travailler dans Directus](#travailler-dans-directus)
 - [Utiliser l'API](#utiliser-lapi)
+- [Portail web et chatbot](#portail-web-et-chatbot)
 - [Protection des données](#protection-des-données)
 - [Exploitation](#exploitation)
 - [Tests](#tests)
@@ -29,13 +33,12 @@ Les contenus sont rédigés et validés par le Ministère dans **Directus** (le 
 ## Vue d'ensemble
 
 ```
-  USSD/SMS  WhatsApp  Web  Kiosques  Ambassadeurs  Centre d'écoute     (étapes suivantes)
-      └─────────┴───────┴──────┴───────────┴──────────────┘
+  USSD/SMS  WhatsApp  Kiosques  Ambassadeurs  Centre d'écoute     (étapes suivantes)
+      └─────────┴─────────┴───────────┴──────────────┘
                               │  HTTPS + clé d'API par canal
                      ┌────────▼─────────┐
-                     │   API « cœur »   │  FastAPI (Python), un seul déploiement
-                     │ (monolithe       │
-                     │  modulaire)      │
+   citoyen (web) ───►│   API « cœur »   │  FastAPI (Python), un seul déploiement
+   /fr, /ln…         │ + portail web    │  (monolithe modulaire)
                      └───┬──────────┬───┘
          lecture seule   │          │  écriture
      ┌───────────────────▼──┐   ┌───▼─────────────────────────────┐
@@ -63,6 +66,7 @@ Chaque module est un dossier de `src/coeur/` qui contient `modeles.py` (tables),
 | `territoires/` | Référentiel des provinces, villes et territoires |
 | `confidentialite/` | Empreinte des numéros, masquage des numéros et courriels dans les textes |
 | `retention/` | Suppression des données à la fin de la période de conservation |
+| `portail/` | Portail web citoyen et chatbot (canal « web ») : pages, textes de l'interface, limiteur de débit |
 
 Fichiers transverses : `main.py` (assemblage), `config.py` (réglages), `securite.py` (clés d'API), `base.py` (base de données), `commun.py` (types partagés).
 
@@ -104,7 +108,8 @@ python outils/verifier_pile.py      # avec les variables du .env chargées dans 
 
 | Service | Adresse |
 | --- | --- |
-| API | http://localhost:8000. Documentation interactive : http://localhost:8000/docs |
+| Portail citoyen | http://localhost:8000/fr (ou `/ln`, `/sw`, `/kg`, `/lua`) |
+| API | http://localhost:8000/v1/…. Documentation interactive : http://localhost:8000/docs |
 | Directus | http://localhost:8055 (compte administrateur : `DIRECTUS_ADMIN_EMAIL` / `DIRECTUS_ADMIN_MDP`) |
 
 Au démarrage, `docker compose up` lance dans l'ordre :
@@ -199,6 +204,37 @@ Champs acceptés : `texte` (500 caractères au plus), `langue` (code de 2 ou 3 l
 
 ---
 
+## Portail web et chatbot
+
+Le portail est le canal « web ». Il fait partie du cœur et appelle directement ses services : aucune clé d'API n'est envoyée au navigateur. Toutes les interactions et tous les signalements du portail sont enregistrés avec le canal `web`.
+
+| Page | Contenu |
+| --- | --- |
+| `/{langue}` | Accueil : poser une question, aperçu de la FAQ |
+| `/{langue}/faq` | Toutes les questions publiées (pliables, sans JavaScript) |
+| `/{langue}/signaler` | Signalement : type, territoire, quartier ou village, précisions. Aucun champ téléphone |
+
+**Conçu pour la 2G et les téléphones modestes :**
+
+- Tout fonctionne avec de simples formulaires HTML. `portail.js` est une amélioration facultative : la conversation s'affiche sans recharger la page.
+- Aucune ressource externe (ni police, ni CDN, ni outil de mesure d'audience). Les pages sont compressées et la feuille de style et le script restent en cache une journée.
+- Le premier chargement complet pèse environ **3 Ko compressés**. Un test (`test_page_legere_pour_la_2g`) empêche la page de dépasser 30 Ko non compressés.
+
+**Langues de l'interface.** Le portail est proposé dans toutes les langues actives de Directus, et les contenus s'affichent dans la langue choisie (repli en français, signalé à l'écran). Les textes de l'interface (boutons, consignes) viennent de `src/coeur/portail/textes/<code>.json`. Sont fournis `fr.json` et `ln.json`. **Le lingala est une proposition à faire relire par un locuteur natif** (voir `textes/LISEZMOI.md`). Pour une autre langue, faire traduire `fr.json` et le déposer sous le code de la langue (ex. `sw.json`). Toute clé manquante est reprise du français, et un test vérifie que chaque traduction est complète.
+
+**Escalade.** Si `NUMERO_VERT` est renseigné, le portail invite à l'appeler. Tant qu'il est vide (numéro pas encore attribué), le portail n'affiche aucun numéro : il indique que la question est enregistrée pour compléter la FAQ, ce qui est le cas grâce au journal des interactions. Dans les deux cas, il ne collecte aucune donnée pour rappeler le citoyen.
+
+**Protections :**
+
+- Les textes affichés sont échappés, et le script n'utilise jamais `innerHTML`.
+- Une politique CSP stricte n'autorise que les ressources du site lui-même.
+- Le débit est limité par adresse IP : 20 questions par minute et 5 signalements par heure, réglables.
+- Les adresses IP restent en mémoire le temps de la fenêtre de comptage et ne sont jamais enregistrées.
+
+> **Derrière un proxy HTTPS**, renseigner `FORWARDED_ALLOW_IPS` avec l'adresse du proxy. Sinon, toutes les requêtes semblent venir du proxy, et l'ensemble des citoyens partage la même limite de débit.
+
+---
+
 ## Protection des données
 
 Ces règles sont **appliquées par le code** et **vérifiées par des tests**, pas seulement écrites :
@@ -252,12 +288,17 @@ python outils/verifier_pile.py
 | `SEUIL_SECRET_STATISTIQUE` | 5 | Effectif minimal publié |
 | `CACHE_CONTENUS_SECONDES` | 60 | Délai maximal de prise en compte d'une publication |
 | `ENVIRONNEMENT` | developpement | Avec `production`, le chargement des exemples est refusé |
+| `NUMERO_VERT` | (vide) | Affiché par le portail en cas d'escalade. Vide : aucun numéro affiché |
+| `PORTAIL_QUESTIONS_PAR_MINUTE` | 20 | Limite par adresse IP |
+| `PORTAIL_SIGNALEMENTS_PAR_HEURE` | 5 | Limite par adresse IP |
+| `FORWARDED_ALLOW_IPS` | 127.0.0.1 | Adresse du proxy HTTPS (voir [Portail web](#portail-web-et-chatbot)) |
 
 ### Avant la mise en production
 
 - [ ] Remplacer `donnees/territoires.csv` par le référentiel officiel de l'INS.
 - [ ] Générer des secrets forts et uniques, et ranger `PEPPER_TELEPHONE` dans un coffre-fort.
-- [ ] Placer l'API et Directus derrière un proxy HTTPS (Nginx, Caddy…). Ne pas exposer PostgreSQL.
+- [ ] Placer l'API et Directus derrière un proxy HTTPS (Nginx, Caddy…), renseigner `FORWARDED_ALLOW_IPS`. Ne pas exposer PostgreSQL.
+- [ ] Renseigner `NUMERO_VERT` dès qu'il est attribué. Faire relire `ln.json` et traduire l'interface en kiswahili, kikongo et tshiluba.
 - [ ] Mettre en place des sauvegardes PostgreSQL chiffrées (`pg_dump`) **et tester leur restauration**.
 - [ ] Ne pas charger les exemples (`ENVIRONNEMENT=production`).
 - [ ] Faire l'audit de sécurité prévu avant l'ouverture de chaque canal.
@@ -273,7 +314,7 @@ docker compose -f docker-compose.test.yml up -d     # base jetable, port 5433
 pytest
 ```
 
-- `tests/unitaires/` : moteur de recherche, confidentialité. Ces tests ne demandent pas de base.
+- `tests/unitaires/` : moteur de recherche, confidentialité, limiteur de débit. Ces tests ne demandent pas de base.
 - `tests/integration/` : API de bout en bout contre PostgreSQL, migrations, droits des rôles. Chaque lancement repart d'une base vide et vérifie au passage que les migrations s'appliquent et s'annulent.
 - `outils/verifier_pile.py` : vérification sur la pile complète, Directus compris.
 
@@ -292,7 +333,7 @@ Penser aux droits des rôles (voir `_droits()` dans `migrations/versions/0001_sc
 
 **Ajouter un module.** Créer `src/coeur/<module>/` avec `modeles.py`, `schemas.py`, `service.py` et `routes.py`. Déclarer ses modèles dans `src/coeur/modeles.py` et son routeur dans `src/coeur/main.py`.
 
-**Brancher un canal** (étapes suivantes). Le canal appelle l'API ; il ne lit jamais la base directement. En cas d'`escalade`, il passe la main à un humain. Pour l'USSD et le SMS, utiliser `reponse_courte`.
+**Brancher un canal** (étapes suivantes). Un canal externe (passerelle USSD, bot WhatsApp…) appelle l'API avec sa clé ; il ne lit jamais la base directement. Seul le portail web, qui fait partie du cœur, appelle directement `connaissances.service.traiter_question`. En cas d'`escalade`, il passe la main à un humain. Pour l'USSD et le SMS, utiliser `reponse_courte`.
 
 **Changer de moteur de recherche** (par exemple Rasa, après évaluation langue par langue). Écrire une classe qui respecte `MoteurRecherche` (`connaissances/moteur.py`) et l'instancier dans `connaissances/depot.py`. La règle de décision (`decider`) et l'escalade ne changent pas. Garder les tests de `test_moteur.py` comme référence de qualité.
 
@@ -305,4 +346,6 @@ Penser aux droits des rôles (voir `_droits()` dans `migrations/versions/0001_sc
 - **Texte des questions** : il est conservé, masqué, pour améliorer la FAQ. Un citoyen peut néanmoins y écrire un nom. Si ce risque est jugé trop élevé, on peut ne conserver que le texte des escalades, ou aucun texte.
 - **Territoires** : le fichier fourni est un échantillon aux codes provisoires.
 - **Hébergement** : le lieu d'hébergement en RDC reste à décider (centre de données local ou cloud avec région locale). La pile Docker convient aux deux options.
+- **Interface du portail** : disponible en français et en lingala (proposition à relire). Les autres langues affichent l'interface en français tant que leur fichier `textes/<langue>.json` n'est pas fourni.
+- **Limite de débit** : elle est comptée par processus. Avec plusieurs processus ou serveurs, la limite effective est multipliée d'autant. Un compteur partagé (Redis) serait à prévoir si la charge l'exige.
 - **Exemples de contenus** : ils sont en français seulement et marqués `[EXEMPLE non validé]`. Aucun texte en langue nationale n'est fourni : il doit venir de traducteurs et être validé par le BCR.

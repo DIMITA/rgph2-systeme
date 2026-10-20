@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block titre %}{{ t.signaler }} — {{ t.titre_court }}{% endblock %}
+{% block contenu %}
+<h1>{{ t.signaler }}</h1>
+<p>{{ t.signaler_intro }}</p>
+{% if erreur %}<p class="erreur" role="alert">{{ erreur }}</p>{% endif %}
+<form method="post" action="/{{ langue }}/signaler">
+  <fieldset>
+    <legend>{{ t.type_signalement }}</legend>
+    {% for type in ["menage_non_visite", "rumeur", "agent_douteux", "autre"] %}
+    <label class="choix"><input type="radio" name="type" value="{{ type }}" required{% if saisie.type == type %} checked{% endif %}> {{ t["type_" ~ type] }}</label>
+    {% endfor %}
+  </fieldset>
+
+  <label for="territoire_code">{{ t.territoire }}</label>
+  <select id="territoire_code" name="territoire_code" required>
+    <option value="">{{ t.choisir }}</option>
+    {% for p in provinces %}{% if p.territoires %}
+    <optgroup label="{{ p.nom }}">
+      {% for ter in p.territoires %}<option value="{{ ter.code }}"{% if saisie.territoire_code == ter.code %} selected{% endif %}>{{ ter.nom }}</option>{% endfor %}
+    </optgroup>
+    {% endif %}{% endfor %}
+  </select>
+
+  <label for="localite">{{ t.localite }}</label>
+  <input id="localite" name="localite" maxlength="120" value="{{ saisie.localite or '' }}">
+
+  <label for="description">{{ t.description }}</label>
+  <textarea id="description" name="description" rows="3" maxlength="500">{{ saisie.description or '' }}</textarea>
+
+  <button type="submit">{{ t.envoyer_signalement }}</button>
+</form>
+<p class="note">{{ t.confidentialite }}</p>
+{% endblock %}

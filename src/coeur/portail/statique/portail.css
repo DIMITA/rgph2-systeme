@@ -1,0 +1,35 @@
+/* Portail RGPH-2 : polices système, aucune ressource externe, lisible sur petit écran. */
+:root{--bleu:#0b4f8a;--bleu-clair:#e8f0f8;--jaune:#f7d117;--texte:#1a1a1a;--gris:#5c5c5c;--fond:#fff;--alerte:#fff4d6;--erreur:#a40000}
+*{box-sizing:border-box}
+body{margin:0;font:1rem/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--texte);background:var(--fond)}
+header{background:var(--bleu);border-bottom:4px solid var(--jaune);padding:.6rem 1rem;display:flex;flex-wrap:wrap;gap:.5rem 1rem;align-items:center;justify-content:space-between}
+header a{color:#fff}
+.marque{font-weight:700;font-size:1.2rem;text-decoration:none}
+nav{display:flex;flex-wrap:wrap;gap:.2rem .7rem}
+nav a{font-size:.95rem}
+nav a[aria-current]{font-weight:700;text-decoration:none;border-bottom:2px solid var(--jaune)}
+main{max-width:40rem;margin:0 auto;padding:1rem;overflow-wrap:anywhere}
+h1{font-size:1.4rem}h2{font-size:1.15rem;margin-top:2rem}
+a{color:var(--bleu)}
+.accroche{font-size:1.05rem}
+.note{color:var(--gris);font-size:.9rem}
+label{display:block;font-weight:600;margin:.8rem 0 .3rem}
+.choix{font-weight:400;margin:.3rem 0}
+textarea,input,select{width:100%;font:inherit;padding:.5rem;border:1px solid #888;border-radius:4px}
+.choix input{width:auto}
+fieldset{border:1px solid #ccc;border-radius:4px;margin:1rem 0}
+button{margin-top:.8rem;font:inherit;font-weight:600;color:#fff;background:var(--bleu);border:0;border-radius:4px;padding:.6rem 1.4rem;cursor:pointer}
+button:disabled{opacity:.6}
+#fil{display:flex;flex-direction:column;gap:.6rem;margin:1rem 0}
+.bulle{padding:.6rem .8rem;border-radius:8px;max-width:95%}
+.bulle p{margin:.2rem 0}
+.bulle .auteur{font-size:.8rem;font-weight:700;color:var(--gris)}
+.vous{align-self:flex-end;background:#eee}
+.officielle{background:var(--bleu-clair);border-left:4px solid var(--bleu)}
+.escalade{background:var(--alerte);border-left:4px solid var(--jaune)}
+.repli{font-size:.85rem;font-style:italic;color:var(--gris)}
+.erreur{color:var(--erreur);font-weight:600}
+audio{width:100%;margin-top:.4rem}
+details{border-bottom:1px solid #ddd;padding:.6rem 0}
+summary{cursor:pointer;font-weight:600}
+footer{max-width:40rem;margin:2rem auto 0;padding:1rem;border-top:1px solid #ddd;font-size:.9rem;color:var(--gris)}

@@ -46,6 +46,9 @@ services:
       CLES_API: ${CLES_API:?à définir dans .env}
       CLE_MINISTERE: ${CLE_MINISTERE:?à définir dans .env}
       ENVIRONNEMENT: ${ENVIRONNEMENT:-developpement}
+      NUMERO_VERT: ${NUMERO_VERT:-}
+      # Adresse du proxy HTTPS : sans elle, tous les citoyens partagent la même limite de débit.
+      FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-127.0.0.1}
     ports:
       - "8000:8000"
     depends_on:

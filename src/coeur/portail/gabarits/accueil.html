@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block contenu %}
+<p class="accroche">{{ t.accroche }}</p>
+
+<section id="fil" aria-live="polite"
+  data-langue="{{ langue }}"
+  data-vous="{{ t.vous }}"
+  data-officielle="{{ t.reponse_officielle }}"
+  data-repli="{{ t.repli_langue }}"
+  data-ecouter="{{ t.ecouter }}"
+  data-escalade="{{ message_escalade }}"
+  data-trop="{{ t.trop_de_requetes }}"
+  data-erreur="{{ t.erreur_reseau }}">
+  {% if echange %}
+  <div class="bulle vous"><p class="auteur">{{ t.vous }}</p><p>{{ echange.question }}</p></div>
+  {% with reponse = echange.reponse %}{% include "_reponse.html" %}{% endwith %}
+  {% endif %}
+</section>
+
+{% if erreur %}<p class="erreur" role="alert">{{ erreur }}</p>{% endif %}
+
+<form id="question" method="post" action="/{{ langue }}/question">
+  <label for="texte">{{ t.votre_question }}</label>
+  <textarea id="texte" name="texte" rows="3" maxlength="500" required placeholder="{{ t.exemple_question }}">{{ saisie or "" }}</textarea>
+  <button type="submit">{{ t.envoyer }}</button>
+</form>
+<p class="note">{{ t.confidentialite }}</p>
+
+<section>
+  <h2>{{ t.questions_frequentes }}</h2>
+  {% if faq %}
+  <ul>
+    {% for c in faq %}<li><a href="/{{ langue }}/faq#c{{ c.contenu_id }}">{{ c.question }}</a></li>{% endfor %}
+  </ul>
+  <p><a href="/{{ langue }}/faq">{{ t.voir_toute_la_faq }}</a></p>
+  {% else %}
+  <p>{{ t.aucune_faq }}</p>
+  {% endif %}
+</section>
+{% endblock %}

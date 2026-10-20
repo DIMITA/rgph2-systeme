@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block titre %}{{ t.questions_frequentes }} — {{ t.titre_court }}{% endblock %}
+{% block contenu %}
+<h1>{{ t.questions_frequentes }}</h1>
+{% for c in faq %}
+<details id="c{{ c.contenu_id }}">
+  <summary lang="{{ c.langue }}">{{ c.question }}</summary>
+  {% if c.repli_langue %}<p class="repli">{{ t.repli_langue }}</p>{% endif %}
+  <p lang="{{ c.langue }}">{{ c.reponse }}</p>
+  {% if c.audio_url %}<audio controls preload="none" src="{{ c.audio_url }}">{{ t.ecouter }}</audio>{% endif %}
+</details>
+{% else %}
+<p>{{ t.aucune_faq }}</p>
+{% endfor %}
+<p><a href="/{{ langue }}">{{ t.retour_accueil }}</a></p>
+{% endblock %}

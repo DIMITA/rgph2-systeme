@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="{{ langue }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block titre %}{{ t.titre }}{% endblock %}</title>
+<link rel="stylesheet" href="/statique/portail.css">
+<script src="/statique/portail.js" defer></script>
+</head>
+<body>
+<header>
+  <a class="marque" href="/{{ langue }}">{{ t.titre_court }}</a>
+  <nav aria-label="{{ t.langue }}">
+    {% for l in langues %}<a href="/{{ l.code }}"{% if l.code == langue %} aria-current="true"{% endif %} lang="{{ l.code }}">{{ l.nom }}</a>{% endfor %}
+  </nav>
+</header>
+<main>
+{% block contenu %}{% endblock %}
+</main>
+<footer>
+  {% if numero_vert %}<p>{{ t.numero_vert | replace("{numero}", numero_vert) }}</p>{% endif %}
+  <p><a href="/{{ langue }}/faq">{{ t.questions_frequentes }}</a> · <a href="/{{ langue }}/signaler">{{ t.signaler }}</a></p>
+</footer>
+</body>
+</html>

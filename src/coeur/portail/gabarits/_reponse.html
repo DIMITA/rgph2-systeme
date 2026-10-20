@@ -1,0 +1,15 @@
+{# Une réponse du chatbot : contenu validé ou escalade. #}
+{% if reponse.type == "reponse" %}
+<div class="bulle officielle">
+  <p class="auteur">{{ t.reponse_officielle }}</p>
+  {% if reponse.contenu.repli_langue %}<p class="repli">{{ t.repli_langue }}</p>{% endif %}
+  <p lang="{{ reponse.contenu.langue }}">{{ reponse.contenu.reponse }}</p>
+  {% if reponse.contenu.audio_url %}
+  <audio controls preload="none" src="{{ reponse.contenu.audio_url }}">{{ t.ecouter }}</audio>
+  {% endif %}
+</div>
+{% else %}
+<div class="bulle escalade">
+  <p>{{ message_escalade }}</p>
+</div>
+{% endif %}
