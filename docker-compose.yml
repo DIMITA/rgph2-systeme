@@ -51,6 +51,11 @@ x-env-coeur: &env-coeur
   WHATSAPP_JETON: ${WHATSAPP_JETON:-}
   WHATSAPP_SECRET_APP: ${WHATSAPP_SECRET_APP:-}
   WHATSAPP_JETON_VERIFICATION: ${WHATSAPP_JETON_VERIFICATION:-}
+  # Messages vocaux : « aucune » tant que le service de transcription n'est pas démarré
+  # (profil « transcription »), puis « service » ; langues ouvertes une à une après évaluation.
+  TRANSCRIPTION: ${TRANSCRIPTION:-aucune}
+  TRANSCRIPTION_URL: http://transcription:9000
+  TRANSCRIPTION_LANGUES: ${TRANSCRIPTION_LANGUES:-}
 
 x-url-api: &url-api postgresql+psycopg://rgph_api:${RGPH_API_MDP}@postgres:5432/rgph
 
@@ -176,6 +181,26 @@ services:
       api:
         condition: service_started
 
+  # Transcription des messages vocaux (modèle open source, voir transcription/LISEZMOI.md).
+  # Démarré seulement avec : docker compose --profile transcription up -d
+  transcription:
+    build: ./transcription
+    image: rgph2-transcription:local
+    profiles: ["transcription"]
+    restart: unless-stopped
+    environment:
+      MODELE: ${TRANSCRIPTION_MODELE:-facebook/mms-1b-all}
+      CODES_LANGUES: ${TRANSCRIPTION_CODES:-fr:fra,ln:lin,sw:swh,kg:kng,lua:lua}
+      DUREE_MAX: ${TRANSCRIPTION_DUREE_MAX:-180}
+    volumes:
+      # Modèle téléchargé une fois (environ 4 Go), gardé entre les redémarrages.
+      - modeles_transcription:/modeles
+    # Serveur avec GPU NVIDIA : décommenter (et voir le Dockerfile).
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices: [{driver: nvidia, count: 1, capabilities: [gpu]}]
+
   directus:
     image: directus/directus:11.5.1
     restart: unless-stopped
@@ -227,3 +252,5 @@ volumes:
   enregistrements:
   # SMS en attente d'envoi (file de Kannel).
   file_sms:
+  # Modèle de transcription téléchargé (service « transcription »).
+  modeles_transcription:

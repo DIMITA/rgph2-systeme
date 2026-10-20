@@ -77,7 +77,8 @@ Chaque module est un dossier de `src/coeur/` qui contient `modeles.py` (tables),
 
 | Module | Rôle |
 | --- | --- |
-| `connaissances/` | Lit les contenus publiés et choisit la bonne réponse (`moteur.py`), ou décide d'escalader |
+| `connaissances/` | Lit les contenus publiés et choisit la bonne réponse (`moteur.py`), ou décide d'escalader ; évaluation langue par langue, à l'écrit et à la voix (`evaluation.py`) |
+| `comprehension/` | Voix → texte : transcripteur interchangeable (aucun, service du projet, simulation), langues ouvertes une à une |
 | `interactions/` | Journal de chaque question (sans nom ni numéro en clair) |
 | `signalements/` | Signalements localisés envoyés par les canaux, et leur suivi par le Ministère |
 | `statistiques/` | Agrégats par pays, province ou territoire, avec secret statistique |
@@ -405,7 +406,7 @@ Le tableau de bord présente une section *USSD et SMS* : dates de passage consul
 
 ## WhatsApp
 
-Le bot WhatsApp offre les services de l'USSD et du SMS sous forme de **listes et de boutons**. Il répond aussi aux **questions écrites** : la base fermée donne la réponse complète validée, avec l'**audio et la vidéo en langue locale** s'il y en a. Sans réponse validée, il propose un rappel par un conseiller, qui arrive dans la console des agents.
+Le bot WhatsApp offre les services de l'USSD et du SMS sous forme de **listes et de boutons**. Il répond aussi aux **questions écrites et aux messages vocaux** dans la langue du citoyen. À la voix, il fait d'abord confirmer le sujet compris (Oui / Non). Dans les deux cas, la base fermée donne la réponse complète validée, avec l'**audio et la vidéo en langue locale** s'il y en a. Sans réponse validée, il propose un rappel par un conseiller, qui arrive dans la console des agents.
 
 Il passe par l'**API officielle de Meta**, la seule disponible : **les messages transitent donc hors de RDC**. C'est un point à faire arbitrer par le point focal protection des données. Le cœur ne garde que l'empreinte du numéro, jamais le texte des messages.
 
@@ -414,6 +415,7 @@ Il passe par l'**API officielle de Meta**, la seule disponible : **les messages 
 - **Sécurité** : toute notification sans signature valide de Meta (`X-Hub-Signature-256`) est refusée.
 - **Rappels de passage** : « Prévenez-moi » après une date de passage. Le citoyen reçoit un message 3 jours avant le passage, puis la veille, entre 8 h et 18 h. `STOP` efface tout. Le numéro des abonnés est conservé **chiffré** et effacé 7 jours après le passage. Les rappels utilisent un **modèle approuvé par Meta** et sont **facturés** ; le texte à soumettre est dans le LISEZMOI.
 - **Tableau de bord** : la section WhatsApp donne les messages reçus, les usagers distincts, les réponses (gratuites), les rappels envoyés (facturés), les abonnés et les échecs d'envoi.
+- **Messages vocaux** : transcrits par un modèle open source hébergé par le projet (conteneur `transcription`, profil Docker du même nom), dans les langues ouvertes une à une après évaluation (`TRANSCRIPTION_LANGUES`). Sinon, proposition de rappel. Mise en service, modèle, licence, matériel et procédure d'ouverture d'une langue : [transcription/LISEZMOI.md](transcription/LISEZMOI.md).
 - **Tester sans compte Meta** : la section WhatsApp du simulateur (`/simulateur`), et `python outils/verifier_whatsapp.py`.
 
 ---
@@ -528,6 +530,8 @@ python outils/verifier_pile.py
 | `SEUIL_CONFIANCE` | 0.5 | Plus haut : plus d'escalades, moins de risque d'erreur |
 | `MARGE_AMBIGUITE` | 0.1 | Écart minimal entre les deux meilleurs contenus |
 | `SEUIL_SECRET_STATISTIQUE` | 5 | Effectif minimal publié |
+| `TRANSCRIPTION` | `aucune` | Messages vocaux : `aucune`, `service` (conteneur `transcription`) ou `simulation` (tests) |
+| `TRANSCRIPTION_LANGUES` | (vide) | Langues dont les messages vocaux sont transcrits, ouvertes une à une après évaluation, ex. `sw,ln` |
 | `CONSERVATION_TEXTE_QUESTIONS` | `tout` | Texte (masqué) des questions gardé dans le journal : `tout`, `escalades` ou `aucun`. À arbitrer par le point focal protection des données |
 | `CACHE_CONTENUS_SECONDES` | 60 | Délai maximal de prise en compte d'une publication |
 | `ENVIRONNEMENT` | developpement | Avec `production`, le chargement des exemples est refusé |
@@ -589,6 +593,7 @@ python outils/verifier_pile.py
 - [ ] USSD et SMS : obtenir le code court (ARPTC), la liaison SMPP et un agrégateur USSD (fiche dans `sms/LISEZMOI.md`). Importer la vraie liste des badges, saisir et publier le calendrier, faire relire les textes en lingala. Mettre `SMS_SIMULATION=false` et `SIMULATEUR_MOBILE=false`.
 - [ ] WhatsApp : faire vérifier l'entreprise (INS) chez Meta, obtenir le numéro et le jeton permanent, abonner le webhook en HTTPS, soumettre le profil (fiche dans `whatsapp/LISEZMOI.md`). **Faire arbitrer le transit des messages par Meta** par le point focal protection des données. Faire approuver le modèle `rappel_passage` et prévoir son budget.
 - [ ] Kiosques et Ambassadeurs : choisir et préparer les tablettes (Android 9 ou plus, Chrome à jour, épinglage d'écran), faire envoyer par l'hébergeur de l'audio l'en-tête `Access-Control-Allow-Origin` (fiche dans `terrain/LISEZMOI.md`), traduire `src/coeur/terrain/textes/fr.json` dans les langues des zones et le faire relire.
+- [ ] Messages vocaux : faire confirmer la licence du modèle (MMS : CC-BY-NC 4.0), prévoir le GPU du pic, trancher la variante du kikongo, évaluer chaque langue sur de vrais messages avant de l'ouvrir (fiche dans `transcription/LISEZMOI.md`).
 - [ ] Console des agents : publier le WebSocket d'Asterisk (port 8088) **en `wss://` derrière le proxy HTTPS**, et renseigner `ASTERISK_WS_URL`. Les navigateurs n'autorisent le micro que sur un site en HTTPS. Renseigner `SIP_ADRESSE_EXTERNE` avec l'adresse IP publique.
 
 ---
@@ -647,6 +652,7 @@ Pour chaque langue : réponses justes, **fausses** (un autre contenu que le bon 
 
 ## Limites connues et points à trancher
 
+- **Messages vocaux** : le circuit est testé de bout en bout avec une transcription simulée, et le service avec du vrai audio Opus mais un moteur factice. **Le modèle MMS n'a encore été exécuté sur aucun message réel** : sa qualité dans chaque langue reste à mesurer. Textes des nouveaux messages en français seulement.
 - **Moteur de recherche** : il est lexical (mots et variantes). Il fonctionne bien en français sur la FAQ d'exemple. Pour les langues nationales, la qualité dépendra surtout des **formulations** saisies. Il faut l'évaluer langue par langue avec de vraies questions : l'outil existe (`python -m coeur.connaissances.evaluation`, voir « Faire évoluer le code »), les questions réelles en langues nationales manquent encore.
 - **Secret statistique** : petites cases masquées, puis masquage complémentaire dans chaque tableau publié (toutes les marges, et les territoires d'une même province). C'est une règle simple, pas une optimisation : elle masque parfois plus que le strict nécessaire, et elle ne couvre pas un croisement entre deux périodes choisies par l'utilisateur (du 1er au 10 moins du 1er au 9). Les chiffres des centres d'appels, de l'USSD et de WhatsApp sont des totaux nationaux, sans répartition à soustraire. À faire valider par le point focal protection des données avant toute publication externe.
 - **Texte des questions** : il est conservé, masqué, pour améliorer la FAQ. Un citoyen peut néanmoins y écrire un nom. `CONSERVATION_TEXTE_QUESTIONS=escalades` ne garde que les questions restées sans réponse (celles qui servent à enrichir la FAQ), `aucun` n'en garde aucune. Le choix revient au point focal protection des données.

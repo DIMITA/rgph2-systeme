@@ -24,7 +24,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "ruff==0.17.1"]
+# numpy : tests du service de transcription (transcription/serveur.py).
+dev = ["pytest>=8", "ruff==0.17.1", "numpy>=1.26"]
 # Vérifications dans un vrai navigateur : console des agents (outils/verifier_console_agent.py)
 # et application de terrain hors ligne (tests/integration/test_terrain_navigateur.py).
 e2e = ["playwright>=1.48"]

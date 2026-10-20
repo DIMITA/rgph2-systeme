@@ -14,7 +14,8 @@ citoyen ──► WhatsApp (Meta) ──POST signé──► /v1/whatsapp/webhoo
 2. Le **menu** propose : questions fréquentes, date de passage, vérifier un agent, ménage non recensé, parler à un conseiller, changer de langue.
 3. Il peut aussi **écrire sa question**. La base fermée donne la **réponse complète validée**, suivie de l'**audio** et de la **vidéo** en langue locale s'ils existent dans Directus (champs `audio_url` et `video_url`). Sans réponse validée, il peut demander à être rappelé, et la demande arrive dans la console des agents avec l'origine « WhatsApp ».
 4. Les mots-clés du SMS fonctionnent aussi : `AGENT AB1234`, `PASSAGE GOMA`…
-5. Les messages vocaux et les images ne sont pas lus : pas de reconnaissance vocale pendant le pilote (voir architecture.md). Le bot invite à écrire.
+5. Il peut **envoyer un message vocal** dans sa langue. Le bot le transcrit (service `transcription`, voir [transcription/LISEZMOI.md](../transcription/LISEZMOI.md)), cherche le sujet dans la base fermée, puis demande « J'ai compris votre question ainsi : … Est-ce bien cela ? » avec Oui / Non (et l'audio de la question s'il existe). « Oui » : la réponse validée. « Non » : il propose de reformuler ou d'être rappelé. Dans une langue pas encore ouverte (`TRANSCRIPTION_LANGUES`), il propose directement un rappel par un conseiller. La voix n'est jamais enregistrée.
+6. Les images et les vidéos ne sont pas lues : le bot invite à écrire ou à parler.
 
 ## Démarches au nom de l'INS (hors code)
 

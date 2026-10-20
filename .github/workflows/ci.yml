@@ -4,7 +4,8 @@
 #               de terrain hors ligne dans Chromium), en Python 3.11
 #               (version minimale) et 3.12 (celle de l'image Docker), puis contrôle
 #               qu'aucun écart ne subsiste entre les modèles et les migrations ;
-#   - images  : construction des trois images et validation de docker-compose.yml.
+#   - images  : construction des images (cœur, Asterisk, Kannel, transcription) et
+#               validation de docker-compose.yml.
 # Les vérifications sur la pile complète (outils/verifier_*.py) demandent Directus,
 # Asterisk et Kannel démarrés : elles restent manuelles.
 name: CI
@@ -30,7 +31,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install "ruff==0.17.1"
-      - run: ruff check --output-format github src tests outils migrations
+      - run: ruff check --output-format github src tests outils migrations transcription
 
   tests:
     runs-on: ubuntu-24.04
@@ -73,8 +74,10 @@ jobs:
           RGPH_API_MDP: test_api
           RGPH_DIRECTUS_MDP: test_directus
       - run: pip install -e ".[dev,e2e]"
-      # Chromium pour le test de l'application de terrain hors ligne (sinon il est ignoré).
+      # Chromium pour le test de l'application de terrain hors ligne (sinon il est ignoré),
+      # ffmpeg pour le décodage des messages vocaux par le service de transcription.
       - run: python -m playwright install --with-deps chromium
+      - run: sudo apt-get install -y --no-install-recommends ffmpeg
       # -W error::SyntaxWarning : une séquence d'échappement invalide casse la CI
       # avant de devenir une erreur dans une future version de Python.
       - run: python -W error::SyntaxWarning -m compileall -q src outils migrations
@@ -94,3 +97,4 @@ jobs:
       - run: docker build --tag rgph2-coeur:ci .
       - run: docker build --tag rgph2-asterisk:ci asterisk
       - run: docker build --tag rgph2-sms:ci sms
+      - run: docker build --tag rgph2-transcription:ci transcription
