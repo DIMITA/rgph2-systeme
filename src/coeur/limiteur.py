@@ -20,7 +20,7 @@ from sqlalchemy import JSON, BigInteger, DateTime, Integer, String, delete, func
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
-from coeur.base import SCHEMA_COEUR, Base, moteur_sql
+from coeur.base import SCHEMA_COEUR, Base, moteur_court
 from coeur.config import parametres
 
 TABLES_COURTES = {"schema": SCHEMA_COEUR, "prefixes": ["UNLOGGED"]}
@@ -82,7 +82,7 @@ class LimiteurDebit:
             index_elements=[CompteurDebit.cle, CompteurDebit.fenetre],
             set_={"nb": func.least(CompteurDebit.nb + 1, self.limite + 1)},
         ).returning(CompteurDebit.nb)
-        with moteur_sql().begin() as connexion:
+        with moteur_court().begin() as connexion:
             courante = connexion.execute(ajout).scalar_one()
             precedente = connexion.execute(
                 select(CompteurDebit.nb).where(CompteurDebit.cle == empreinte,
@@ -93,7 +93,7 @@ class LimiteurDebit:
 
     def reinitialiser(self) -> None:
         """Pour les tests : oublie tous les compteurs (de tous les espaces)."""
-        with moteur_sql().begin() as connexion:
+        with moteur_court().begin() as connexion:
             connexion.execute(delete(CompteurDebit))
 
 
@@ -108,7 +108,7 @@ class MemoireCourte:
         """Vrai la première fois qu'une clé est vue pendant la durée de la mémoire."""
         maintenant = time.time()
         empreinte = _empreinte(self.espace, cle)
-        with moteur_sql().begin() as connexion:
+        with moteur_court().begin() as connexion:
             connexion.execute(delete(Marque).where(Marque.cle == empreinte,
                                                    Marque.expire_a <= _date(maintenant)))
             ajout = insert(Marque).values(
@@ -117,7 +117,7 @@ class MemoireCourte:
             return connexion.execute(ajout).scalar() is not None
 
     def lire(self, cle: str) -> dict | None:
-        with moteur_sql().connect() as connexion:
+        with moteur_court().connect() as connexion:
             return connexion.execute(
                 select(Marque.valeur).where(Marque.cle == _empreinte(self.espace, cle),
                                             Marque.expire_a > _date(time.time()))
@@ -129,12 +129,12 @@ class MemoireCourte:
                                       expire_a=expire)
         ajout = ajout.on_conflict_do_update(index_elements=[Marque.cle],
                                             set_={"valeur": valeur, "expire_a": expire})
-        with moteur_sql().begin() as connexion:
+        with moteur_court().begin() as connexion:
             connexion.execute(ajout)
 
     def vider(self) -> None:
         """Pour les tests : oublie toutes les marques (de tous les espaces)."""
-        with moteur_sql().begin() as connexion:
+        with moteur_court().begin() as connexion:
             connexion.execute(delete(Marque))
 
 

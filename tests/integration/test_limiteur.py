@@ -73,3 +73,19 @@ def test_purge(session_admin):
     session_admin.commit()
     for modele in (CompteurDebit, Marque):
         assert session_admin.scalar(select(func.count()).select_from(modele)) == 0
+
+
+def test_compteurs_disponibles_quand_le_pool_des_requetes_est_plein():
+    """Chaque requête tient sa connexion, puis demande un compteur. Dans le même pool, sous
+    charge, elles s'attendaient toutes (interblocage constaté au test de charge)."""
+    from coeur.base import moteur_court, moteur_sql
+
+    assert moteur_court() is not moteur_sql()
+    pool = moteur_sql().pool
+    tenues = [moteur_sql().connect() for _ in range(pool.size() + pool._max_overflow)]
+    try:
+        assert LimiteurDebit("pool_plein", 5, 60).autoriser("cle")
+        assert MemoireCourte("pool_plein", 60).nouveau("cle")
+    finally:
+        for connexion in tenues:
+            connexion.close()

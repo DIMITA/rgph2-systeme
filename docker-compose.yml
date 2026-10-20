@@ -74,6 +74,9 @@ services:
       DATABASE_URL: *url-api
       # Adresse du proxy HTTPS : sans elle, tous les citoyens partagent la même limite de débit.
       FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-127.0.0.1}
+      # Processus d'uvicorn : un cœur de processeur chacun, environ 95 requêtes/s (voir
+      # charge/LISEZMOI.md). 1 avec les simulateurs, qui gardent leurs messages en mémoire.
+      WEB_CONCURRENCY: ${API_PROCESSUS:-1}
     volumes:
       - enregistrements:/donnees/enregistrements
     ports:

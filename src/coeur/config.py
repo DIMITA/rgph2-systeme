@@ -32,6 +32,11 @@ class Parametres(BaseSettings):
 
     # Connexion de l'API (rôle rgph_api : lecture seule sur les contenus du CMS).
     database_url: str
+    # Connexions à PostgreSQL par processus : `base_connexions` gardées ouvertes, jusqu'à
+    # `base_connexions_max` au pic. Une requête en tient une ; au-delà, elle attend.
+    # Le total sur tous les processus doit rester sous max_connections de PostgreSQL.
+    base_connexions: int = 10
+    base_connexions_max: int = 20
 
     # Clé secrète servant à calculer l'empreinte des numéros de téléphone.
     # La perdre empêche de relier les nouvelles interactions aux anciennes ;

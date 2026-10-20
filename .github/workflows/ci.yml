@@ -31,7 +31,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install "ruff==0.17.1"
-      - run: ruff check --output-format github src tests outils migrations transcription
+      - run: ruff check --output-format github src tests outils migrations transcription asterisk charge
 
   tests:
     runs-on: ubuntu-24.04

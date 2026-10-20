@@ -19,4 +19,9 @@ RUN groupadd --gid 1500 rgph-media \
 USER rgph
 
 EXPOSE 8000
-CMD ["uvicorn", "coeur.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+# Connexions inactives gardées 75 s : plus longtemps que le proxy HTTPS et les passerelles
+# (60 s d'habitude). À 5 s (défaut), le client réutilise une connexion que le serveur
+# vient de fermer : requête perdue (constaté au test de charge). Nombre de processus :
+# WEB_CONCURRENCY (docker-compose.yml).
+CMD ["uvicorn", "coeur.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", \
+     "--timeout-keep-alive", "75"]

@@ -10,7 +10,8 @@ from cryptography.fernet import Fernet
 # Directus) qui ne lisent pas cette table : ils restent dans .env (voir
 # outils/preparer_env.py), et `definir` les refuse.
 ENV_SEULEMENT = frozenset({
-    "environnement", "database_url", "directus_url", "fuseau_horaire",
+    "environnement", "database_url", "base_connexions", "base_connexions_max",
+    "directus_url", "fuseau_horaire",
     "cles_api", "cle_api_centre_ecoute",
     "secret_postes", "nb_postes", "svi_touches_langues", "sip_domaine", "asterisk_ws_url",
     "dossier_enregistrements", "sms_passerelle", "kannel_url", "kannel_utilisateur",
