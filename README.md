@@ -635,6 +635,7 @@ ruff check src tests outils migrations               # erreurs de code, imports 
 - `outils/verifier_mobile.py` : une session USSD, puis des SMS envoyés par l'opérateur simulé de Kannel (aller et retour), et le contrôle de l'absence de numéro en clair dans la base et les journaux. Il faut `SMS_SIMULATION=true`.
 - `outils/verifier_whatsapp.py` : des notifications signées comme celles de Meta, envoyées au webhook (langue, menu, FAQ, question libre, badge, rappel), et le contrôle de l'absence de numéro en clair. Il faut `WHATSAPP_PASSERELLE=simulation` et `SIMULATEUR_MOBILE=true`.
 - `outils/verifier_telephonie.py` : trois appels simulés (serveur vocal, rappel, agent) et contrôle de l'absence de numéro en clair. Il faut `TELEPHONIE_SIMULATION=true`.
+- `outils/verifier_question_vocale.py` : question dite au serveur vocal (touche 9), avec un faux service de transcription : enregistrement, sujet proposé, confirmation, réponse, effacement de la voix. Même prérequis.
 - `tests/integration/test_terrain_navigateur.py` : l'application de terrain dans Chromium, serveur réellement coupé puis relancé (file d'attente, absence de doublon, révocation). Prérequis : `pip install -e ".[e2e]"` et `python -m playwright install chromium` ; sans navigateur, le test est ignoré.
 - `outils/verifier_pile.py` : vérification sur la pile complète, Directus compris : circuit de validation et connexion au tableau de bord. Il ne journalise qu'une seule question, pour ne pas fausser les statistiques.
 

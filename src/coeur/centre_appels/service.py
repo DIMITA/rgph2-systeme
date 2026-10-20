@@ -8,10 +8,15 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from coeur.centre_appels.modeles import Appel, Ecoute, Enregistrement, Rappel
-from coeur.centre_appels.schemas import ElementMenu, EvenementAppel, LangueMenu, MenuSvi
+from coeur.centre_appels.schemas import (
+    ElementMenu, EvenementAppel, LangueMenu, MenuSvi, QuestionVocale, ReponseAudio,
+)
 from coeur.commun import Canal
+from coeur.comprehension.transcription import langue_ouverte, transcripteur
 from coeur.config import Parametres, parametres
-from coeur.confidentialite.service import empreinte_telephone, normaliser_telephone
+from coeur.confidentialite.service import (
+    empreinte_telephone, masquer_donnees_sensibles, normaliser_telephone,
+)
 from coeur.connaissances import service as connaissances
 from coeur.connaissances.depot import Corpus
 from coeur.connaissances.modeles import STATUT_PUBLIE, Contenu
@@ -45,19 +50,86 @@ def menu_svi(session: Session, corpus: Corpus, reglages: Parametres) -> MenuSvi:
     for langue in langues:
         elements = []
         for contenu_id in places:
-            texte = connaissances.texte_servi(
-                corpus, contenu_id, langue.code, reglages.langue_par_defaut
-            )
-            if texte is None or len(elements) == NB_TOUCHES_MENU:
+            audio = _reponse_audio(corpus, contenu_id, langue.code, reglages)
+            if audio is None or len(elements) == NB_TOUCHES_MENU:
                 continue
-            elements.append(ElementMenu(
-                touche=len(elements) + 1, contenu_id=contenu_id, cle=texte.cle,
-                langue=texte.langue, repli_langue=texte.repli_langue,
-                question=texte.question, reponse=texte.reponse,
-                audio_url=texte.audio_url, audio_question_url=texte.audio_question_url,
-            ))
+            elements.append(ElementMenu(touche=len(elements) + 1, **audio.model_dump()))
         menus[langue.code] = elements
-    return MenuSvi(langues=langues, menus=menus)
+    # Question dite (touche 9) : seulement dans les langues dont la voix est transcrite.
+    vocal = [l.code for l in langues if langue_ouverte(l.code, reglages)]
+    publies = session.scalars(
+        select(Contenu.id).where(Contenu.statut == STATUT_PUBLIE).order_by(Contenu.id)
+    ).all()
+    catalogue = {
+        code: [a for cid in publies if (a := _reponse_audio(corpus, cid, code, reglages))]
+        for code in vocal
+    }
+    return MenuSvi(langues=langues, menus=menus, vocal=vocal, catalogue=catalogue)
+
+
+def _reponse_audio(corpus: Corpus, contenu_id: int, langue: str,
+                   reglages: Parametres) -> ReponseAudio | None:
+    texte = connaissances.texte_servi(corpus, contenu_id, langue, reglages.langue_par_defaut)
+    if texte is None:
+        return None
+    return ReponseAudio(
+        contenu_id=contenu_id, cle=texte.cle, langue=texte.langue,
+        repli_langue=texte.repli_langue, question=texte.question, reponse=texte.reponse,
+        audio_url=texte.audio_url, audio_question_url=texte.audio_question_url,
+    )
+
+
+# --- Question dite au SVI ---------------------------------------------------------------
+
+def question_vocale(session: Session, corpus: Corpus, reglages: Parametres, reference: str,
+                    langue: str, audio: bytes, type_mime: str) -> QuestionVocale:
+    """Question dite après la touche 9 : transcrite, puis le sujet compris est soumis au
+    citoyen (« Vous voulez savoir : … ? 1 oui, 2 non ») par le SVI, avant toute réponse.
+
+    La voix ne fait que traverser la mémoire. Seule la transcription masquée est gardée,
+    le temps de la confirmation, puis journalisée comme une question écrite.
+    """
+    conseiller = QuestionVocale(issue="conseiller")
+    moteur = transcripteur()
+    if moteur is None or not langue_ouverte(langue, reglages):
+        return conseiller
+    transcription = moteur.transcrire(audio, type_mime, langue)
+    if transcription is None:
+        return conseiller
+    texte = masquer_donnees_sensibles(transcription.texte)[:500]
+    appel = _appel(session, reference)
+    appel.langue = langue
+    resultat = connaissances.repondre(corpus, texte, langue, reglages)
+    if resultat.contenu is None:
+        _journaliser(session, appel, texte, resultat, entree="voix")
+        session.commit()
+        return conseiller
+    appel.question_texte = texte
+    appel.question_contenu_id = resultat.contenu.contenu_id
+    appel.question_score = resultat.score
+    session.commit()
+    return QuestionVocale(issue="proposition", contenu_id=resultat.contenu.contenu_id)
+
+
+def _confirmer_question(session: Session, corpus: Corpus, reglages: Parametres, appel: Appel,
+                        touche: str | None) -> bool:
+    if appel.question_contenu_id is None:
+        return False
+    contenu = connaissances.texte_servi(corpus, appel.question_contenu_id,
+                                        appel.langue or reglages.langue_par_defaut,
+                                        reglages.langue_par_defaut)
+    score = appel.question_score or 0.0
+    if touche == "1" and contenu is not None:
+        reponse = ReponseSortie(type="reponse", contenu=contenu, score=score)
+    else:
+        reponse = connaissances.escalade("vocal_non_confirme", score)
+    _journaliser(session, appel, appel.question_texte or "", reponse, entree="voix")
+    _oublier_question(appel)
+    return True
+
+
+def _oublier_question(appel: Appel) -> None:
+    appel.question_texte = appel.question_contenu_id = appel.question_score = None
 
 
 # --- Événements d'appel -----------------------------------------------------------------
@@ -136,18 +208,25 @@ def traiter_evenement(
                                usager_empreinte=appel.usager_empreinte,
                                numero_chiffre=chiffrer_numero(numero)))
 
+    elif ev.type == "vocal_confirme":
+        resultat["enregistre"] = _confirmer_question(session, corpus, reglages, appel,
+                                                     ev.touche)
+
     elif ev.type == "fin":
         appel.fin_a = _maintenant()
+        _oublier_question(appel)
 
     session.commit()
     return resultat
 
 
-def _journaliser(session: Session, appel: Appel, texte: str, reponse: ReponseSortie) -> None:
+def _journaliser(session: Session, appel: Appel, texte: str, reponse: ReponseSortie,
+                 entree: str = "texte") -> None:
     interactions.enregistrer(
         session, canal=Canal.CENTRE_ECOUTE, texte=texte,
         langue_demandee=appel.langue or parametres().langue_par_defaut,
         territoire_code=None, usager_empreinte=appel.usager_empreinte, reponse=reponse,
+        entree=entree,
     )
 
 

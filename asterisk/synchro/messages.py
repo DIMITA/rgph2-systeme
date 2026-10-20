@@ -22,6 +22,15 @@ PHRASES = {
                        "dès que possible. Au revoir.",
     "rappel_impossible": "Votre numéro n'est pas visible : nous ne pouvons pas vous rappeler.",
     "au_revoir": "Merci de votre appel. Au revoir.",
+    # Question dite (touche 9), dans les langues dont la voix est transcrite.
+    "question_proposer": "Pour poser votre question à voix haute, tapez 9.",
+    "question_dire": "Après le bip, posez votre question en quelques mots, "
+                     "puis tapez dièse.",
+    "question_vous_voulez": "Vous voulez savoir :",
+    "question_oui_non": "Si c'est bien votre question, tapez 1. Sinon, tapez 2.",
+    "question_reformuler": "Excusez-nous. Posez votre question autrement, après le bip.",
+    "question_non_comprise": "Nous n'avons pas compris votre question. "
+                             "Un conseiller va vous répondre.",
 }
 
 # Annonce de chaque langue dans le menu de choix : enregistrée dans la langue elle-même,
