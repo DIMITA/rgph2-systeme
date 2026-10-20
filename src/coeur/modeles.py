@@ -9,11 +9,12 @@ from coeur.interactions.modeles import Interaction
 from coeur.limiteur import CompteurDebit, Marque
 from coeur.mobile.modeles import Consultation, MessageSms, PreferenceLangue
 from coeur.signalements.modeles import Signalement
+from coeur.terrain.modeles import Appareil, RemonteeRecue
 from coeur.territoires.modeles import Province, Territoire
 from coeur.whatsapp.modeles import Abonnement, Conversation, MessageWhatsapp
 
 __all__ = [
-    "Abonnement", "Appel", "Badge", "Base", "CompteurDebit", "Consultation", "Contenu", "Conversation", "Ecoute", "Enregistrement", "Formulation",
+    "Abonnement", "Appareil", "Appel", "Badge", "Base", "CompteurDebit", "Consultation", "Contenu", "Conversation", "Ecoute", "Enregistrement", "Formulation",
     "Interaction", "Langue", "Marque", "MessageSms", "MessageWhatsapp", "Passage", "PreferenceLangue", "Province", "Rappel",
-    "Signalement", "Territoire", "Traduction",
+    "RemonteeRecue", "Signalement", "Territoire", "Traduction",
 ]

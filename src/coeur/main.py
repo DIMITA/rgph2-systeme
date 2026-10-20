@@ -26,6 +26,7 @@ from coeur.signalements.routes import routeur as signalements
 from coeur.simulateur.routes import routeur as simulateur
 from coeur.sms.routes import routeur as sms
 from coeur.statistiques.routes import routeur as statistiques
+from coeur.terrain.routes import routeur as terrain
 from coeur.tableau_de_bord.auth import CHEMIN as CHEMIN_TDB
 from coeur.tableau_de_bord.auth import DUREE_SESSION
 from coeur.tableau_de_bord.routes import routeur as tableau_de_bord
@@ -69,6 +70,12 @@ app.mount(
     StaticFiles(directory=Path(__file__).parent / "portail" / "statique"),
     name="statique",
 )
+# Application hors ligne des kiosques et des Ambassadeurs (index.html servi sous /terrain/).
+app.mount(
+    "/terrain",
+    StaticFiles(directory=Path(__file__).parent / "terrain" / "statique", html=True),
+    name="terrain",
+)
 app.mount(
     f"{CHEMIN_TDB}/statique",
     StaticFiles(directory=Path(__file__).parent / "tableau_de_bord" / "statique"),
@@ -90,6 +97,7 @@ app.include_router(documentation.routeur)
 # Le portail en dernier : ses adresses (/fr, /ln…) ne doivent masquer aucune route de l'API.
 for routeur in (
     connaissances, signalements, statistiques, territoires, calendrier, badges, ussd, sms, whatsapp,
+    terrain,
     centre_appels, tableau_de_bord, console_agents, simulateur, portail,
 ):
     app.include_router(routeur)

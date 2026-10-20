@@ -8,7 +8,8 @@
 - WhatsApp : envoie les rappels de passage dus (entre WHATSAPP_HEURE_DEBUT et
   WHATSAPP_HEURE_FIN), efface les abonnements dont le passage est fini, oublie les
   conversations restées en attente depuis plus d'un jour.
-- Efface les compteurs de débit et la mémoire courte expirés (voir `coeur.limiteur`).
+- Efface les compteurs de débit et la mémoire courte expirés (voir `coeur.limiteur`),
+  et les identifiants des remontées de terrain après CONSERVATION_REMONTEES_JOURS.
 """
 
 import argparse
@@ -21,6 +22,7 @@ from coeur.base import nouvelle_session
 from coeur.centre_appels.service import expirer_rappels, purger_enregistrements
 from coeur.config import parametres
 from coeur.limiteur import purger as purger_compteurs
+from coeur.terrain.service import purger_remontees
 from coeur.whatsapp import abonnements
 from coeur.whatsapp.modeles import Conversation
 
@@ -39,6 +41,8 @@ def executer() -> dict[str, int]:
         resultat["conversations oubliées"] = session.execute(
             delete(Conversation).where(Conversation.maj_a < hier)).rowcount
         resultat["compteurs expirés"] = purger_compteurs(session)
+        resultat["remontées oubliées"] = purger_remontees(session,
+                                                          reglages.conservation_remontees_jours)
         session.commit()
     return resultat
 

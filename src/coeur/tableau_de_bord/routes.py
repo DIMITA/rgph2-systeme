@@ -55,6 +55,7 @@ MOTIFS = {
     "ambigu": "Plusieurs réponses possibles",
     "demande_humain": "Demande à parler à quelqu'un",
     "traduction_indisponible": "Traduction indisponible",
+    "remontee_terrain": "Recueillie sur le terrain (kiosque, Ambassadeur)",
 }
 TYPES = {
     "menage_non_visite": "Ménage non visité",

@@ -57,6 +57,8 @@ class Parametres(BaseSettings):
     roles_tableau_de_bord: str = "Administrator,Validateur BCR,Tableau de bord"
     roles_agents: str = "Administrator,Agent centre d'appels"
     roles_qualite: str = "Administrator,Superviseur qualité"
+    # Enrôlement et révocation des kiosques et des téléphones d'Ambassadeurs.
+    roles_terrain: str = "Administrator"
     # Signe le cookie de session du tableau de bord (32 caractères au moins).
     secret_session: str = Field(min_length=32)
     # À activer en production (HTTPS) : le cookie n'est alors jamais envoyé en clair.
@@ -130,6 +132,12 @@ class Parametres(BaseSettings):
     # Abonnement (et numéro) effacé ce nombre de jours après la fin du dernier passage.
     whatsapp_abonnement_jours_apres: int = 7
 
+    # Kiosques et Ambassadeurs
+    # Validité d'un code d'activation remis pour une tablette ou un téléphone.
+    terrain_activation_jours: int = 7
+    # Les identifiants des remontées reçues (anti-doublon) sont effacés après ce délai.
+    conservation_remontees_jours: int = 60
+
     def langue_modele(self, langue: str) -> str:
         correspondances = dict(p.strip().split(":", 1)
                                for p in self.whatsapp_modele_langues.split(",") if ":" in p)
@@ -140,13 +148,14 @@ class Parametres(BaseSettings):
         return {int(j): f"j{int(j)}" for j in self.whatsapp_rappels_jours.split(",") if j.strip()}
 
     def roles_par_espace(self) -> dict[str, set[str]]:
-        """Espace (pilotage, agents, qualite) → rôles Directus admis."""
+        """Espace (pilotage, agents, qualite, terrain) → rôles Directus admis."""
         def liste(texte: str) -> set[str]:
             return {r.strip() for r in texte.split(",") if r.strip()}
 
         return {"pilotage": liste(self.roles_tableau_de_bord),
                 "agents": liste(self.roles_agents),
-                "qualite": liste(self.roles_qualite)}
+                "qualite": liste(self.roles_qualite),
+                "terrain": liste(self.roles_terrain)}
 
     def roles_autorises(self) -> set[str]:
         return set().union(*self.roles_par_espace().values())
