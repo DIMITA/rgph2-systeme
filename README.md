@@ -4,7 +4,8 @@ Ce dépôt contient le **cœur commun** auquel se brancheront les six canaux du 
 
 - étape 1 : le cœur ;
 - étape 2 : le **portail web et son chatbot**, premier canal branché ;
-- étape 3 : le **tableau de bord du Ministère**.
+- étape 3 : le **tableau de bord du Ministère** ;
+- étape 4a : le **centre d'appels** (numéro vert sur IP : serveur vocal, file d'attente, rappels, enregistrements).
 
 Le cœur fait trois choses :
 
@@ -24,6 +25,7 @@ Les contenus sont rédigés et validés par le Ministère dans **Directus** (le 
 - [Utiliser l'API](#utiliser-lapi)
 - [Portail web et chatbot](#portail-web-et-chatbot)
 - [Tableau de bord du Ministère](#tableau-de-bord-du-ministère)
+- [Centre d'appels (numéro vert)](#centre-dappels-numéro-vert)
 - [Protection des données](#protection-des-données)
 - [Exploitation](#exploitation)
 - [Tests](#tests)
@@ -35,8 +37,12 @@ Les contenus sont rédigés et validés par le Ministère dans **Directus** (le 
 ## Vue d'ensemble
 
 ```
-  USSD/SMS  WhatsApp  Kiosques  Ambassadeurs  Centre d'écoute     (étapes suivantes)
-      └─────────┴─────────┴───────────┴──────────────┘
+  USSD/SMS  WhatsApp  Kiosques  Ambassadeurs     (étapes suivantes)   Numéro vert
+      └─────────┴─────────┴───────────┘                              │
+                              │                              ┌──────▼──────┐
+                              │                              │  Asterisk   │ SVI, file,
+                              │                              │ (conteneur) │ enregistrements
+                              │◄─────────────────────────────┴─────────────┘
                               │  HTTPS + clé d'API par canal
                      ┌────────▼─────────┐
    citoyen (web) ───►│   API « cœur »   │  FastAPI (Python), un seul déploiement
@@ -69,6 +75,7 @@ Chaque module est un dossier de `src/coeur/` qui contient `modeles.py` (tables),
 | `confidentialite/` | Empreinte des numéros, masquage des numéros et courriels dans les textes |
 | `retention/` | Suppression des données à la fin de la période de conservation |
 | `portail/` | Portail web citoyen et chatbot (canal « web ») : pages et textes de l'interface |
+| `centre_appels/` | Menu du serveur vocal, suivi des appels (empreinte du numéro), rappels chiffrés, enregistrements et leur purge |
 | `tableau_de_bord/` | Tableau de bord du Ministère : synthèse, questions sans réponse, signalements. Connexion avec les comptes Directus |
 
 Fichiers transverses : `main.py` (assemblage), `config.py` (réglages), `securite.py` (clés d'API), `base.py` (base de données), `commun.py` (types partagés), `limiteur.py` (limite de débit par adresse IP).
@@ -114,6 +121,7 @@ python outils/verifier_pile.py      # avec les variables du .env chargées dans 
 | Portail citoyen | http://localhost:8000/fr (ou `/ln`, `/sw`, `/kg`, `/lua`) |
 | API | http://localhost:8000/v1/…. Documentation interactive : http://localhost:8000/docs |
 | Tableau de bord | http://localhost:8000/tableau-de-bord (comptes Directus autorisés) |
+| Téléphonie | SIP sur UDP 5060, audio sur UDP 10000-10050, postes WebRTC sur le port 8088 (voir [asterisk/LISEZMOI.md](asterisk/LISEZMOI.md)) |
 | Directus | http://localhost:8055 (compte administrateur : `DIRECTUS_ADMIN_EMAIL` / `DIRECTUS_ADMIN_MDP`) |
 
 Au démarrage, `docker compose up` lance dans l'ordre :
@@ -121,7 +129,8 @@ Au démarrage, `docker compose up` lance dans l'ordre :
 - `postgres` crée les rôles à la première initialisation (`db/init/01-roles.sh`) ;
 - `migrations` crée ou met à jour les tables (Alembic), puis s'arrête ;
 - `api` et `directus` démarrent ;
-- `directus-config` règle l'affichage des collections et crée les rôles, puis s'arrête. Ce service peut être relancé sans risque.
+- `directus-config` règle l'affichage des collections et crée les rôles, puis s'arrête. Ce service peut être relancé sans risque ;
+- `asterisk` (téléphonie) et `taches` (purges du centre d'appels, toutes les heures) démarrent.
 
 ---
 
@@ -268,6 +277,31 @@ Les Rédacteurs et les Lecteurs sont refusés. La session dure 8 heures, dans un
 
 ---
 
+## Centre d'appels (numéro vert)
+
+Le centre d'appels repose sur un standard téléphonique sur IP, **Asterisk**, dans le conteneur `asterisk`. Contrairement à une simple ligne, il prend **plusieurs appels en même temps**. Le détail technique, la fiche à transmettre à l'opérateur et les tests sont dans [asterisk/LISEZMOI.md](asterisk/LISEZMOI.md).
+
+**Ce que vit l'appelant :**
+
+1. Accueil, avec l'annonce que l'appel peut être enregistré.
+2. Choix de la langue : 1 français, 2 lingala, 3 kiswahili, 4 kikongo, 5 tshiluba.
+3. **Serveur vocal (SVI)** : il écoute les réponses enregistrées et validées par le BCR, sans attendre d'agent.
+4. Avec la touche 0 : **file d'attente**, puis le premier agent libre. La conversation est enregistrée.
+5. Si l'attente dépasse 3 minutes, ou si aucun agent n'est connecté : **proposition de rappel**.
+
+**Alimenter le SVI depuis Directus**, sur un contenu publié :
+
+- le champ `ordre_svi` (1 à 8) place la question dans le menu ;
+- dans chaque traduction, `audio_question_url` donne la question lue et `audio_url` la réponse lue.
+
+Le SVI se met à jour seul toutes les 5 minutes. Les messages fixes (accueil, menus, attente…) sont à faire enregistrer par des locuteurs natifs : le script complet est dans [asterisk/messages/LISEZMOI.md](asterisk/messages/LISEZMOI.md).
+
+**Dimensionnement retenu** : 240 appels par jour au pic, soit environ 36 à l'heure de pointe. Il faut **6 agents** et **10 canaux simultanés** chez l'opérateur pour que 80 % des appels soient décrochés en moins de 30 secondes (calcul Erlang C).
+
+**Rappels** : le numéro de l'appelant est conservé **chiffré** (Fernet, clé `CLE_CHIFFREMENT`) et **effacé dès que le rappel est traité**, ou au plus tard après `CONSERVATION_RAPPELS_JOURS` (7). Le service `taches` vérifie ces délais toutes les heures. La liste des rappels et la console des agents arrivent à l'étape 4b.
+
+---
+
 ## Protection des données
 
 Ces règles sont **appliquées par le code** et **vérifiées par des tests**, pas seulement écrites :
@@ -281,6 +315,9 @@ Ces règles sont **appliquées par le code** et **vérifiées par des tests**, p
 | Secret statistique | Effectif entre 1 et 4 masqué (`SEUIL_SECRET_STATISTIQUE`=5). Une ligne entière est masquée si elle compte moins de 5 interactions | `test_niveau_territoire_avec_secret_statistique` |
 | Conservation limitée | Commande `purger` (voir [Exploitation](#exploitation)) | `test_retention.py` |
 | Cloisonnement | 3 rôles PostgreSQL. L'API ne peut pas modifier les contenus. Directus ne voit ni les interactions ni les signalements | `test_droits_base.py` |
+| Numéro des demandes de rappel | **Chiffré** dans la base, effacé dès le rappel traité ou après 7 jours | `test_demande_de_rappel_chiffree`, `test_rappels_expires_apres_sept_jours` |
+| Enregistrements des appels | Annonce en début d'appel, suppression automatique après 90 jours (fichiers compris) | `test_purge_des_enregistrements_anciens` |
+| Téléphonie sans trace en clair | Pas de CDR, de CEL ni de journal de file. Journaux d'Asterisk sans numéros | `test_logs_et_cdr_sans_numero_en_clair`, `outils/verifier_telephonie.py` |
 | Contenus validés seulement | L'API ne lit que les contenus `publie`. Seul le rôle Validateur BCR peut publier | `test_questions.py`, `outils/verifier_pile.py` |
 
 **La clé `PEPPER_TELEPHONE` est un secret critique.** Il faut la conserver dans un coffre-fort et **ne jamais la changer en cours d'opération** : les usagers ne seraient plus reconnus. Sa fuite permettrait de retrouver un numéro à partir de son empreinte, par essais successifs.
@@ -329,6 +366,17 @@ python outils/verifier_pile.py
 | `SESSION_HTTPS_SEULEMENT` | false | À passer à `true` dès que le site est servi en HTTPS |
 | `ROLES_TABLEAU_DE_BORD` | Administrator,Validateur BCR,Tableau de bord | Rôles Directus admis au tableau de bord |
 | `FUSEAU_HORAIRE` | Africa/Kinshasa | Heure affichée et découpage des journées du tableau de bord |
+| `CLE_API_CENTRE_ECOUTE` | (aucun) | Clé du canal `centre_ecoute`, partagée par l'API et Asterisk |
+| `CLE_CHIFFREMENT` | (aucun) | Clé Fernet de chiffrement des numéros à rappeler. **Secret critique** : sa perte rend les rappels en attente illisibles |
+| `SECRET_POSTES` | (aucun) | Secret dont sont dérivés les mots de passe SIP des postes |
+| `NB_POSTES` | 6 | Nombre de postes d'agents dans la file |
+| `SVI_TOUCHES_LANGUES` | fr:1,ln:2,sw:3,kg:4,lua:5 | Touches du choix de la langue (enregistrées dans les messages) |
+| `SVI_SYNTHESE_PROVISOIRE` | false | Voix de synthèse française quand un contenu n'a pas d'audio. Pour les tests seulement |
+| `RAPPEL_APRES_SECONDES` | 180 | Attente avant de proposer un rappel |
+| `CONSERVATION_ENREGISTREMENTS_JOURS` | 90 | Durée de conservation des conversations enregistrées |
+| `CONSERVATION_RAPPELS_JOURS` | 7 | Délai au-delà duquel un numéro à rappeler est effacé |
+| `OPERATEUR_SIP_*`, `SIP_ADRESSE_EXTERNE` | (vide) | Liaison de l'opérateur (voir [asterisk/LISEZMOI.md](asterisk/LISEZMOI.md)) |
+| `TELEPHONIE_SIMULATION`, `SIMULATEUR_MDP` | false, (vide) | Appels simulés et téléphone logiciel de test. **Jamais en production** |
 
 ### Avant la mise en production
 
@@ -339,6 +387,8 @@ python outils/verifier_pile.py
 - [ ] Mettre en place des sauvegardes PostgreSQL chiffrées (`pg_dump`) **et tester leur restauration**.
 - [ ] Ne pas charger les exemples (`ENVIRONNEMENT=production`).
 - [ ] Faire l'audit de sécurité prévu avant l'ouverture de chaque canal.
+- [ ] Centre d'appels : obtenir la liaison SIP et le numéro vert (fiche dans `asterisk/LISEZMOI.md`), faire enregistrer les messages vocaux, ranger `CLE_CHIFFREMENT` dans le coffre-fort, `TELEPHONIE_SIMULATION=false` et `SVI_SYNTHESE_PROVISOIRE=false`.
+- [ ] Faire valider par le point focal protection des données l'enregistrement des appels (annonce, durée de 90 jours, accès).
 
 ---
 
@@ -353,6 +403,7 @@ pytest
 
 - `tests/unitaires/` : moteur de recherche, confidentialité, limiteur de débit. Ces tests ne demandent pas de base.
 - `tests/integration/` : API de bout en bout contre PostgreSQL, migrations, droits des rôles. Chaque lancement repart d'une base vide et vérifie au passage que les migrations s'appliquent et s'annulent.
+- `outils/verifier_telephonie.py` : trois appels simulés (serveur vocal, rappel, agent) et contrôle de l'absence de numéro en clair. Il faut `TELEPHONIE_SIMULATION=true`.
 - `outils/verifier_pile.py` : vérification sur la pile complète, Directus compris : circuit de validation et connexion au tableau de bord. Il ne journalise qu'une seule question, pour ne pas fausser les statistiques.
 
 ---
@@ -385,4 +436,6 @@ Penser aux droits des rôles (voir `_droits()` dans `migrations/versions/0001_sc
 - **Hébergement** : le lieu d'hébergement en RDC reste à décider (centre de données local ou cloud avec région locale). La pile Docker convient aux deux options.
 - **Interface du portail** : disponible en français et en lingala (proposition à relire). Les autres langues affichent l'interface en français tant que leur fichier `textes/<langue>.json` n'est pas fourni.
 - **Limite de débit** : elle est comptée par processus. Avec plusieurs processus ou serveurs, la limite effective est multipliée d'autant. Un compteur partagé (Redis) serait à prévoir si la charge l'exige.
+- **Messages vocaux** : tant qu'ils ne sont pas enregistrés, une voix de synthèse française provisoire les remplace, y compris pour les autres langues.
+- **Console des agents** : elle arrive à l'étape 4b (téléphone dans le navigateur, liste des rappels, écoute qualité). D'ici là, les postes existent mais aucun agent ne peut s'y connecter.
 - **Exemples de contenus** : ils sont en français seulement et marqués `[EXEMPLE non validé]`. Aucun texte en langue nationale n'est fourni : il doit venir de traducteurs et être validé par le BCR.

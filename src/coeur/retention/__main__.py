@@ -21,10 +21,8 @@ def main() -> None:
     limite = datetime.combine(args.avant, time.min, timezone.utc)
     with nouvelle_session() as session:
         supprimes = purger(session, limite)
-    print(
-        f"Avant le {args.avant.isoformat()} : {supprimes['interactions']} interactions "
-        f"et {supprimes['signalements']} signalements supprimés."
-    )
+    detail = ", ".join(f"{nombre} {nom}" for nom, nombre in supprimes.items())
+    print(f"Avant le {args.avant.isoformat()}, supprimés : {detail}.")
 
 
 if __name__ == "__main__":

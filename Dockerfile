@@ -12,7 +12,10 @@ COPY migrations ./migrations
 COPY outils ./outils
 COPY donnees ./donnees
 
-RUN useradd --system --no-create-home rgph
+# Groupe partagé avec Asterisk (gid 1500) : l'API peut purger les enregistrements.
+RUN groupadd --gid 1500 rgph-media \
+    && useradd --system --no-create-home --groups rgph-media rgph \
+    && mkdir -p /donnees/enregistrements
 USER rgph
 
 EXPOSE 8000

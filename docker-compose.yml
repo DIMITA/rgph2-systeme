@@ -5,6 +5,31 @@ x-image-coeur: &image-coeur
   build: .
   image: rgph2-coeur:local
 
+# Réglages communs à tous les services Python du cœur (API, migrations et commandes
+# d'administration, tâches périodiques). Chaque service précise sa connexion à la base.
+x-env-coeur: &env-coeur
+  PEPPER_TELEPHONE: ${PEPPER_TELEPHONE:?à définir dans .env}
+  CLES_API: ${CLES_API:?à définir dans .env}
+  CLE_API_CENTRE_ECOUTE: ${CLE_API_CENTRE_ECOUTE:?à définir dans .env}
+  CLE_MINISTERE: ${CLE_MINISTERE:?à définir dans .env}
+  ENVIRONNEMENT: ${ENVIRONNEMENT:-developpement}
+  NUMERO_VERT: ${NUMERO_VERT:-}
+  # Tableau de bord : vérifie les comptes auprès de Directus.
+  DIRECTUS_URL: http://directus:8055
+  SECRET_SESSION: ${SECRET_SESSION:?à définir dans .env}
+  SESSION_HTTPS_SEULEMENT: ${SESSION_HTTPS_SEULEMENT:-false}
+  FUSEAU_HORAIRE: ${FUSEAU_HORAIRE:-Africa/Kinshasa}
+  # Centre d'appels
+  CLE_CHIFFREMENT: ${CLE_CHIFFREMENT:?à définir dans .env}
+  SECRET_POSTES: ${SECRET_POSTES:?à définir dans .env}
+  NB_POSTES: ${NB_POSTES:-6}
+  SVI_TOUCHES_LANGUES: ${SVI_TOUCHES_LANGUES:-fr:1,ln:2,sw:3,kg:4,lua:5}
+  DOSSIER_ENREGISTREMENTS: /donnees/enregistrements
+  CONSERVATION_ENREGISTREMENTS_JOURS: ${CONSERVATION_ENREGISTREMENTS_JOURS:-90}
+  CONSERVATION_RAPPELS_JOURS: ${CONSERVATION_RAPPELS_JOURS:-7}
+
+x-url-api: &url-api postgresql+psycopg://rgph_api:${RGPH_API_MDP}@postgres:5432/rgph
+
 services:
   postgres:
     image: postgres:16.4-alpine
@@ -29,10 +54,10 @@ services:
     <<: *image-coeur
     command: ["alembic", "upgrade", "head"]
     environment:
+      <<: *env-coeur
       DATABASE_URL: postgresql+psycopg://rgph_admin:${POSTGRES_MDP_ADMIN}@postgres:5432/rgph
-      PEPPER_TELEPHONE: ${PEPPER_TELEPHONE}
-      CLE_MINISTERE: ${CLE_MINISTERE}
-      ENVIRONNEMENT: ${ENVIRONNEMENT:-developpement}
+    volumes:
+      - enregistrements:/donnees/enregistrements
     depends_on:
       postgres:
         condition: service_healthy
@@ -41,24 +66,66 @@ services:
     <<: *image-coeur
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql+psycopg://rgph_api:${RGPH_API_MDP}@postgres:5432/rgph
-      PEPPER_TELEPHONE: ${PEPPER_TELEPHONE:?à définir dans .env}
-      CLES_API: ${CLES_API:?à définir dans .env}
-      CLE_MINISTERE: ${CLE_MINISTERE:?à définir dans .env}
-      ENVIRONNEMENT: ${ENVIRONNEMENT:-developpement}
-      NUMERO_VERT: ${NUMERO_VERT:-}
+      <<: *env-coeur
+      DATABASE_URL: *url-api
       # Adresse du proxy HTTPS : sans elle, tous les citoyens partagent la même limite de débit.
       FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-127.0.0.1}
-      # Tableau de bord : vérifie les comptes auprès de Directus.
-      DIRECTUS_URL: http://directus:8055
-      SECRET_SESSION: ${SECRET_SESSION:?à définir dans .env}
-      SESSION_HTTPS_SEULEMENT: ${SESSION_HTTPS_SEULEMENT:-false}
-      FUSEAU_HORAIRE: ${FUSEAU_HORAIRE:-Africa/Kinshasa}
+    volumes:
+      - enregistrements:/donnees/enregistrements
     ports:
       - "8000:8000"
     depends_on:
       migrations:
         condition: service_completed_successfully
+
+  # Tâches de conservation, toutes les heures : expiration des numéros de rappel,
+  # suppression des enregistrements trop anciens.
+  taches:
+    <<: *image-coeur
+    restart: unless-stopped
+    command: ["python", "-m", "coeur.centre_appels", "taches", "--boucle", "3600"]
+    environment:
+      <<: *env-coeur
+      DATABASE_URL: *url-api
+    volumes:
+      - enregistrements:/donnees/enregistrements
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+
+  # Serveur téléphonique : numéro vert, serveur vocal, file d'attente, enregistrements.
+  asterisk:
+    build: ./asterisk
+    image: rgph2-asterisk:local
+    restart: unless-stopped
+    environment:
+      API_URL: http://api:8000
+      CLE_API_CENTRE_ECOUTE: ${CLE_API_CENTRE_ECOUTE:?à définir dans .env}
+      SECRET_POSTES: ${SECRET_POSTES:?à définir dans .env}
+      NB_POSTES: ${NB_POSTES:-6}
+      SVI_TOUCHES_LANGUES: ${SVI_TOUCHES_LANGUES:-fr:1,ln:2,sw:3,kg:4,lua:5}
+      SVI_SYNTHESE_PROVISOIRE: ${SVI_SYNTHESE_PROVISOIRE:-false}
+      SVI_SYNCHRO_SECONDES: ${SVI_SYNCHRO_SECONDES:-300}
+      RAPPEL_APRES_SECONDES: ${RAPPEL_APRES_SECONDES:-180}
+      TELEPHONIE_SIMULATION: ${TELEPHONIE_SIMULATION:-false}
+      SIMULATEUR_MDP: ${SIMULATEUR_MDP:-}
+      OPERATEUR_SIP_HOTE: ${OPERATEUR_SIP_HOTE:-}
+      OPERATEUR_SIP_PORT: ${OPERATEUR_SIP_PORT:-5060}
+      OPERATEUR_SIP_UTILISATEUR: ${OPERATEUR_SIP_UTILISATEUR:-}
+      OPERATEUR_SIP_MDP: ${OPERATEUR_SIP_MDP:-}
+      OPERATEUR_SIP_ENREGISTREMENT: ${OPERATEUR_SIP_ENREGISTREMENT:-false}
+      SIP_ADRESSE_EXTERNE: ${SIP_ADRESSE_EXTERNE:-}
+      STUN_SERVEUR: ${STUN_SERVEUR:-}
+      TZ: ${FUSEAU_HORAIRE:-Africa/Kinshasa}
+    volumes:
+      - enregistrements:/var/spool/asterisk/enregistrements
+    ports:
+      - "5060:5060/udp"
+      - "10000-10050:10000-10050/udp"
+      - "8088:8088"
+    depends_on:
+      api:
+        condition: service_started
 
   directus:
     image: directus/directus:11.5.1
@@ -88,8 +155,7 @@ services:
       migrations:
         condition: service_completed_successfully
 
-  # Configure Directus (affichage des collections, rôles Rédacteur / Validateur BCR / Lecteur).
-  # Idempotent : peut être relancé sans risque.
+  # Configure Directus (affichage des collections, rôles). Idempotent : peut être relancé.
   directus-config:
     <<: *image-coeur
     command: ["python", "outils/configurer_directus.py"]
@@ -104,3 +170,5 @@ services:
 volumes:
   donnees_postgres:
   fichiers_directus:
+  # Conversations enregistrées : écrites par Asterisk, purgées par le cœur.
+  enregistrements:

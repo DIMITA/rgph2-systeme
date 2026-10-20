@@ -28,12 +28,17 @@ class Contenu(Base):
     """Un sujet de la FAQ (ex. « calendrier de passage »), indépendant de la langue."""
 
     __tablename__ = "contenus"
-    __table_args__ = (CheckConstraint(_CONTRAINTE_STATUT, name="statut"),)
+    __table_args__ = (
+        CheckConstraint(_CONTRAINTE_STATUT, name="statut"),
+        CheckConstraint("ordre_svi BETWEEN 1 AND 8", name="ordre_svi"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     cle: Mapped[str] = mapped_column(String(100), unique=True)
     categorie: Mapped[str] = mapped_column(String(50), default="general", server_default="general")
     statut: Mapped[str] = mapped_column(String(16), default="brouillon", server_default="brouillon")
+    # Position dans le menu téléphonique (1 à 8). Vide : absent du serveur vocal.
+    ordre_svi: Mapped[int | None]
     date_creation: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     date_maj: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
@@ -59,6 +64,8 @@ class Traduction(Base):
     reponse_courte: Mapped[str | None] = mapped_column(String(160))
     # Fichier audio enregistré par un locuteur natif.
     audio_url: Mapped[str | None] = mapped_column(String(500))
+    # Question enregistrée, annoncée dans le menu du serveur vocal.
+    audio_question_url: Mapped[str | None] = mapped_column(String(500))
     statut: Mapped[str] = mapped_column(String(16), default="brouillon", server_default="brouillon")
     date_maj: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

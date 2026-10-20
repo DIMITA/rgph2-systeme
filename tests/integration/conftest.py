@@ -50,6 +50,7 @@ def base_propre(moteur_admin):
         connexion.execute(
             text(
                 "TRUNCATE coeur.interactions, coeur.signalements, contenus, "
+                "coeur.appels, coeur.rappels, coeur.enregistrements, "
                 "coeur.territoires, coeur.provinces RESTART IDENTITY CASCADE"
             )
         )

@@ -23,6 +23,8 @@ class Parametres(BaseSettings):
 
     # Une clé par canal, au format "canal:cle,canal:cle".
     cles_api: str = ""
+    # Clé du canal centre_ecoute, partagée avec le serveur téléphonique (Asterisk).
+    cle_api_centre_ecoute: str = ""
     # Clé réservée au Ministère (statistiques, liste des signalements).
     cle_ministere: str = Field(min_length=16)
 
@@ -54,6 +56,18 @@ class Parametres(BaseSettings):
     # La RDC a deux fuseaux : Africa/Kinshasa (UTC+1) et Africa/Lubumbashi (UTC+2).
     fuseau_horaire: str = "Africa/Kinshasa"
 
+    # Centre d'appels
+    # Chiffre les numéros des demandes de rappel (clé Fernet : 44 caractères).
+    cle_chiffrement: str = Field(min_length=44)
+    # Sert à calculer le mot de passe SIP de chaque poste d'agent (partagé avec Asterisk).
+    secret_postes: str = Field(min_length=32)
+    nb_postes: int = 6
+    # Touches du choix de la langue au téléphone (enregistrées dans les messages vocaux).
+    svi_touches_langues: str = "fr:1,ln:2,sw:3,kg:4,lua:5"
+    dossier_enregistrements: str = "/donnees/enregistrements"
+    conservation_enregistrements_jours: int = 90
+    conservation_rappels_jours: int = 7
+
     def roles_autorises(self) -> set[str]:
         return {r.strip() for r in self.roles_tableau_de_bord.split(",") if r.strip()}
 
@@ -65,6 +79,16 @@ class Parametres(BaseSettings):
             if not cle:
                 raise ValueError(f"Entrée CLES_API invalide : {paire!r} (attendu canal:cle)")
             resultat[cle.strip()] = Canal(canal.strip())
+        if self.cle_api_centre_ecoute:
+            resultat[self.cle_api_centre_ecoute] = Canal.CENTRE_ECOUTE
+        return resultat
+
+    def touches_langues(self) -> dict[str, int]:
+        """Code de langue → touche du téléphone (ex. {"fr": 1, "ln": 2})."""
+        resultat = {}
+        for paire in filter(None, (p.strip() for p in self.svi_touches_langues.split(","))):
+            code, _, touche = paire.partition(":")
+            resultat[code.strip()] = int(touche)
         return resultat
 
 

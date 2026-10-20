@@ -16,6 +16,7 @@ URL_DIRECTUS = os.environ.get(
 CLE_WEB = "cle-web-test"
 CLE_USSD = "cle-ussd-test"
 CLE_MINISTERE = "cle-ministere-test-0000"
+CLE_CENTRE = "cle-centre-ecoute-test"
 PEPPER = "pepper-de-test-" + "x" * 32
 
 os.environ.update(
@@ -34,5 +35,8 @@ os.environ.update(
         "PORTAIL_SIGNALEMENTS_PAR_HEURE": "5",
         "SECRET_SESSION": "secret-de-session-de-test-" + "y" * 32,
         "DIRECTUS_URL": "http://directus-factice",
+        "CLE_API_CENTRE_ECOUTE": CLE_CENTRE,
+        "CLE_CHIFFREMENT": "pkbHRqzm-cAjAYvBEXdIrFOhAl5an6FKkNrvaL6cmOQ=",
+        "SECRET_POSTES": "secret-des-postes-de-test-" + "z" * 32,
     }
 )

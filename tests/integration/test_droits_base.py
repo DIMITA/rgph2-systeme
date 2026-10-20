@@ -53,3 +53,8 @@ def test_directus_ne_voit_pas_les_donnees_des_citoyens(directus):
 def test_directus_edite_les_contenus(directus):
     with directus.begin() as connexion:
         connexion.execute(text("INSERT INTO contenus (cle) VALUES ('nouveau-brouillon')"))
+
+
+def test_directus_ne_voit_pas_la_telephonie(directus):
+    for table in ("appels", "rappels", "enregistrements"):
+        refuse(directus, f"SELECT * FROM coeur.{table}")

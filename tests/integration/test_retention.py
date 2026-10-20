@@ -24,7 +24,7 @@ def test_purge_supprime_les_donnees_anciennes_seulement(client, exemples, sessio
     with nouvelle_session() as session:
         supprimes = purger(session, datetime.now(timezone.utc) - timedelta(days=180))
 
-    assert supprimes == {"interactions": 1, "signalements": 1}
+    assert (supprimes["interactions"], supprimes["signalements"]) == (1, 1)
     assert session_admin.scalar(select(func.count()).select_from(Interaction)) == 2
     assert session_admin.scalar(select(func.count()).select_from(Signalement)) == 0
 

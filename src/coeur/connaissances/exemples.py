@@ -16,6 +16,7 @@ EXEMPLES: list[dict] = [
     {
         "cle": "exemple-calendrier-passage",
         "categorie": "calendrier",
+        "ordre_svi": 1,
         "question": "Quand les agents recenseurs passeront-ils chez moi ?",
         "reponse": "Les agents recenseurs passent dans tous les ménages pendant la période "
         "du dénombrement. La date exacte pour votre territoire est annoncée par les autorités locales.",
@@ -30,6 +31,7 @@ EXEMPLES: list[dict] = [
     {
         "cle": "exemple-verifier-agent",
         "categorie": "agents",
+        "ordre_svi": 2,
         "question": "Comment reconnaître un vrai agent recenseur ?",
         "reponse": "Un agent recenseur porte un badge officiel avec sa photo et un numéro. "
         "Vous pouvez vérifier ce numéro par SMS ou auprès du centre d'écoute.",
@@ -40,6 +42,7 @@ EXEMPLES: list[dict] = [
     {
         "cle": "exemple-confidentialite",
         "categorie": "confidentialite",
+        "ordre_svi": 3,
         "question": "Mes réponses au recensement sont-elles confidentielles ?",
         "reponse": "Oui. Vos réponses sont protégées par la loi et servent uniquement "
         "à produire des statistiques. Elles ne sont transmises à aucune autre administration.",
@@ -49,6 +52,7 @@ EXEMPLES: list[dict] = [
     {
         "cle": "exemple-menage-non-visite",
         "categorie": "signalement",
+        "ordre_svi": 4,
         "question": "Mon ménage n'a pas été recensé, que faire ?",
         "reponse": "Signalez-le par SMS, sur WhatsApp ou au centre d'écoute en indiquant "
         "votre territoire et votre quartier ou village. Une équipe viendra vous recenser.",
@@ -59,6 +63,7 @@ EXEMPLES: list[dict] = [
     {
         "cle": "exemple-pourquoi-recensement",
         "categorie": "general",
+        "ordre_svi": 5,
         "question": "À quoi sert le recensement général de la population ?",
         "reponse": "Le recensement permet de connaître le nombre d'habitants et leurs "
         "conditions de vie, pour mieux planifier les écoles, les hôpitaux et les routes.",
@@ -76,7 +81,8 @@ def charger_exemples(session: Session, statut: str = "publie") -> list[int]:
         if existant:
             ids.append(existant.id)
             continue
-        contenu = Contenu(cle=ex["cle"], categorie=ex["categorie"], statut=statut)
+        contenu = Contenu(cle=ex["cle"], categorie=ex["categorie"], statut=statut,
+                          ordre_svi=ex["ordre_svi"])
         session.add(contenu)
         session.flush()
         session.add(

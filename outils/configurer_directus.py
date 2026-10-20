@@ -82,6 +82,11 @@ CHAMPS = {
         "width": "half",
     },
     ("contenus", "statut"): CHAMP_STATUT,
+    ("contenus", "ordre_svi"): {
+        "interface": "input", "width": "half",
+        "options": {"min": 1, "max": 8},
+        "note": "Position dans le menu du serveur vocal (1 à 8). Vide : absent du téléphone.",
+    },
     ("contenus", "date_creation"): {"special": ["date-created"], "readonly": True, "width": "half"},
     ("contenus", "date_maj"): {"special": ["date-updated"], "readonly": True, "width": "half"},
     ("contenus_traductions", "id"): {"hidden": True, "readonly": True},
@@ -95,6 +100,8 @@ CHAMPS = {
     ("contenus_traductions", "reponse_courte"): {"interface": "input", "options": {"softLength": 160},
                                                  "note": "160 caractères au plus : utilisée pour l'USSD et le SMS."},
     ("contenus_traductions", "audio_url"): {"note": "Lien vers l'enregistrement audio (locuteur natif)."},
+    ("contenus_traductions", "audio_question_url"): {
+        "note": "Question enregistrée, annoncée dans le menu du serveur vocal (format wav ou mp3)."},
     ("contenus_traductions", "statut"): CHAMP_STATUT,
     ("contenus_traductions", "date_maj"): {"special": ["date-updated"], "readonly": True, "width": "half"},
     ("formulations", "id"): {"hidden": True, "readonly": True},
