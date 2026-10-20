@@ -25,7 +25,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff==0.17.1"]
-# Vérification de la console des agents dans un vrai navigateur (outils/verifier_console_agent.py).
+# Vérifications dans un vrai navigateur : console des agents (outils/verifier_console_agent.py)
+# et application de terrain hors ligne (tests/integration/test_terrain_navigateur.py).
 e2e = ["playwright>=1.48"]
 
 [tool.setuptools.packages.find]
@@ -37,6 +38,7 @@ coeur = [
     "tableau_de_bord/gabarits/*.html", "tableau_de_bord/statique/*",
     "mobile/textes/*.json", "simulateur/gabarits/*.html",
     "charte/gabarits/*.html", "charte/statique/*", "charte/sources/*",
+    "terrain/statique/*", "terrain/textes/*.json",
 ]
 
 [tool.ruff]

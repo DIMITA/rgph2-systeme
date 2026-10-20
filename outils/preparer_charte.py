@@ -3,6 +3,7 @@
 Produit, dans src/coeur/charte/statique/ :
   - les armoiries « Le Gouvernement » en couleur (fond clair) et en blanc (fond bleu),
     aux tailles affichées et en double résolution, plus l'icône d'onglet ;
+  - les icônes de l'application de terrain (192 et 512 px) ;
   - la police Cooper Hewitt (Medium et Semibold) réduite aux caractères utiles,
     au format woff2 : environ 20 Ko par graisse au lieu de 60.
 
@@ -79,6 +80,14 @@ def armoiries() -> None:
         fond.paste(Image.new("RGB", (640, 14), couleur), (i * 640, 1066))
     fond.save(SORTIE / "fond-connexion.png", optimize=True)
     source.resize((180, 180), Image.LANCZOS).save(SORTIE / "apple-touch-icon.png", optimize=True)
+    # Icônes de l'application de terrain (Android) : armoiries dans la zone sûre centrale
+    # (80 %) d'un carré blanc, pour qu'elles restent entières une fois découpées en rond.
+    for taille in (192, 512):
+        icone = Image.new("RGBA", (taille, taille), (255, 255, 255, 255))
+        cote = round(taille * 0.7)
+        icone.alpha_composite(source.resize((cote, cote), Image.LANCZOS),
+                              ((taille - cote) // 2, (taille - cote) // 2))
+        icone.convert("RGB").save(SORTIE / f"icone-{taille}.png", optimize=True)
     total = sum(p.stat().st_size for p in SORTIE.glob("*.png"))
     print(f"armoiries : {len(list(SORTIE.glob('*.png')))} fichiers, {total // 1024} Ko au total")
 
