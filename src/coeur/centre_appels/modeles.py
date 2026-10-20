@@ -6,6 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from coeur.base import SCHEMA_COEUR, Base
 
 STATUTS_RAPPEL = ("a_rappeler", "en_cours", "rappele", "injoignable", "expire")
+ORIGINES_RAPPEL = ("appel", "ussd", "sms")
 # Issue d'un appel, notée par l'agent (aucun texte libre : pas de donnée personnelle).
 QUALIFICATIONS = ("renseigne", "signalement", "transmis_bcr", "hors_sujet", "coupe")
 
@@ -41,6 +42,7 @@ class Rappel(Base):
     __tablename__ = "rappels"
     __table_args__ = (
         CheckConstraint(f"statut IN {STATUTS_RAPPEL}", name="statut"),
+        CheckConstraint(f"origine IN {ORIGINES_RAPPEL}", name="origine"),
         {"schema": SCHEMA_COEUR},
     )
 
@@ -49,6 +51,10 @@ class Rappel(Base):
         DateTime(timezone=True), server_default=func.now(), index=True
     )
     appel_reference: Mapped[str] = mapped_column(String(64))
+    # Canal de la demande : numéro vert (appel), USSD ou SMS.
+    origine: Mapped[str] = mapped_column(String(8), server_default="appel")
+    # Empreinte du numéro : évite les demandes en double d'un même usager.
+    usager_empreinte: Mapped[str | None] = mapped_column(String(64), index=True)
     # Numéro chiffré (Fernet). Effacé dès que le rappel est traité ou expiré.
     numero_chiffre: Mapped[str | None] = mapped_column(Text)
     langue: Mapped[str | None] = mapped_column(String(8))

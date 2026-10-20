@@ -75,6 +75,25 @@ class Parametres(BaseSettings):
     # Domaine SIP des postes (indifférent pour Asterisk, qui identifie par l'utilisateur).
     sip_domaine: str = "rgph2.local"
 
+    # USSD et SMS
+    # Code court USSD (ex. *123#). Vide tant que l'ARPTC ne l'a pas attribué.
+    ussd_code: str = ""
+    # « simulation » (messages gardés en mémoire, pour les tests) ou « kannel ».
+    sms_passerelle: str = "simulation"
+    kannel_url: str = "http://sms:13013/cgi-bin/sendsms"
+    kannel_utilisateur: str = "rgph"
+    kannel_mdp: str = ""
+    # Nom ou numéro court affiché comme expéditeur des SMS.
+    sms_expediteur: str = "RGPH2"
+    # Chaque SMS envoyé coûte : plafond de SMS de réponse par numéro et par jour.
+    sms_reponses_par_jour: int = 10
+    # Longueur maximale d'un SMS envoyé, en segments de 153 caractères.
+    sms_segments_max: int = 3
+    # Contre l'essai de numéros de badge au hasard : vérifications par numéro et par heure.
+    badges_verifications_par_heure: int = 10
+    # Page « simulateur de téléphone » (/simulateur) : jamais en production.
+    simulateur_mobile: bool = False
+
     def roles_par_espace(self) -> dict[str, set[str]]:
         """Espace (pilotage, agents, qualite) → rôles Directus admis."""
         def liste(texte: str) -> set[str]:

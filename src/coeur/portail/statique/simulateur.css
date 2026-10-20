@@ -1,0 +1,4 @@
+/* Simulateur de téléphone (page de test). */
+.alerte{background:var(--alerte);border-left:4px solid var(--jaune);padding:.6rem .8rem}
+.ecran{background:#1f2a1f;color:#d8f5d0;font:1rem/1.4 ui-monospace,Consolas,monospace;padding:1rem;border-radius:6px;white-space:pre-wrap;max-width:22rem}
+.telephone{max-width:22rem}

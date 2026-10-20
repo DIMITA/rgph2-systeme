@@ -38,5 +38,11 @@ os.environ.update(
         "CLE_API_CENTRE_ECOUTE": CLE_CENTRE,
         "CLE_CHIFFREMENT": "pkbHRqzm-cAjAYvBEXdIrFOhAl5an6FKkNrvaL6cmOQ=",
         "SECRET_POSTES": "secret-des-postes-de-test-" + "z" * 32,
+        # Indépendants du .env local du développeur.
+        "SMS_PASSERELLE": "simulation",
+        "SIMULATEUR_MOBILE": "false",
+        "SMS_REPONSES_PAR_JOUR": "10",
+        "SMS_SEGMENTS_MAX": "3",
+        "BADGES_VERIFICATIONS_PAR_HEURE": "10",
     }
 )

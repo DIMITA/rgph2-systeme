@@ -133,6 +133,7 @@ def traiter_evenement(
         else:
             appel.rappel_demande = True
             session.add(Rappel(appel_reference=ev.appel, langue=appel.langue,
+                               usager_empreinte=appel.usager_empreinte,
                                numero_chiffre=chiffrer_numero(numero)))
 
     elif ev.type == "fin":

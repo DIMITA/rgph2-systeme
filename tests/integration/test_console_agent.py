@@ -10,6 +10,7 @@ from coeur.interactions.modeles import Interaction
 from coeur.signalements.modeles import Signalement
 from coeur.tableau_de_bord.auth import Utilisateur, authentificateur
 from tests.conftest import CLE_CENTRE
+from tests.integration.conftest import USSD
 
 MDP = "bon-mot-de-passe"
 COMPTES = {
@@ -170,7 +171,16 @@ def test_liste_des_rappels_sans_numero(agent):
     evenement(agent, type="rappel", appel="a1", numero="0812345678", langue="ln")
     [rappel] = agent.get("/tableau-de-bord/agent/rappels").json()
     assert rappel["langue_nom"] == "Lingala" and rappel["statut"] == "a_rappeler"
+    assert rappel["origine"] == "Numéro vert"
     assert "812345678" not in str(rappel)
+
+
+def test_rappel_demande_par_ussd_dans_la_liste(agent):
+    r = agent.post("/v1/ussd", headers=USSD, data={"sessionId": "u1", "phoneNumber": "0812345678",
+                                                    "text": "1*5*1"})
+    assert r.text.startswith("END Demande enregistrée")
+    [rappel] = agent.get("/tableau-de-bord/agent/rappels").json()
+    assert (rappel["origine"], rappel["langue_nom"]) == ("USSD", "Français")
 
 
 def test_prendre_et_cloturer_un_rappel(agent, session_admin):

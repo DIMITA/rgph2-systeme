@@ -1,0 +1,38 @@
+# Configuration Kannel, rendue au démarrage par entrypoint.sh ({{MARQUEURS}} remplacés).
+# Journaux au niveau « avertissement » seulement : les niveaux inférieurs écriraient
+# les numéros et le texte des SMS. Pas de journal d'accès (access-log) pour la même raison.
+
+group = core
+admin-port = 13000
+admin-password = "{{KANNEL_ADMIN_MDP}}"
+admin-allow-ip = "127.0.0.1"
+smsbox-port = 13001
+box-allow-ip = "127.0.0.1"
+log-level = 2
+dlr-storage = internal
+# File d'attente sur disque : les SMS en attente survivent à un redémarrage.
+store-type = spool
+store-location = "/var/spool/kannel"
+
+{{SMSC}}
+
+group = smsbox
+bearerbox-host = 127.0.0.1
+bearerbox-port = 13001
+sendsms-port = 13013
+log-level = 2
+mo-recode = true
+
+# Compte utilisé par le cœur pour envoyer les réponses (KANNEL_MDP).
+group = sendsms-user
+username = rgph
+password = "{{KANNEL_MDP}}"
+concatenation = true
+max-messages = 4
+
+# Tout SMS reçu est transmis au cœur ; la réponse repart par sendsms (pas par ce corps).
+group = sms-service
+keyword = default
+get-url = "{{API_URL}}/v1/sms/entrant?cle={{CLE_SMS}}&de=%p&texte=%a"
+max-messages = 0
+omit-empty = true

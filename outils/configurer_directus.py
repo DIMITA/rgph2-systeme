@@ -12,15 +12,21 @@ leur présentation dans Directus et crée les rôles et droits :
 - Agent centre d'appels : console des agents (téléphone, FAQ, signalements, rappels).
 - Superviseur qualité : écoute des conversations enregistrées (chaque écoute est journalisée).
 
+Le calendrier de passage suit le même circuit que les contenus (rédigé, puis publié par
+le Validateur BCR). La liste des territoires proposée est lue dans l'API (API_URL) :
+relancer le script après chaque import du référentiel des territoires.
+
 Idempotent : on peut le relancer après chaque mise à jour (les droits des trois
 rôles sont recréés à l'identique).
 
-Variables : DIRECTUS_URL, DIRECTUS_ADMIN_EMAIL, DIRECTUS_ADMIN_MDP
+Variables : DIRECTUS_URL, DIRECTUS_ADMIN_EMAIL, DIRECTUS_ADMIN_MDP, API_URL
 """
 
+import csv
 import os
 import sys
 import time
+from pathlib import Path
 
 import httpx
 
@@ -68,6 +74,16 @@ COLLECTIONS = {
         "display_template": "{{nom}} ({{code}})",
         "sort": 4,
     },
+    "calendrier_passages": {
+        "icon": "event",
+        "note": "Dates de passage des agents par territoire (USSD, SMS, WhatsApp). "
+                "Servies seulement si « Publié ».",
+        "display_template": "{{territoire_code}} : {{date_debut}} → {{date_fin}}",
+        "archive_field": "statut",
+        "archive_value": "archive",
+        "unarchive_value": "brouillon",
+        "sort": 5,
+    },
 }
 
 CHAMPS = {
@@ -111,6 +127,12 @@ CHAMPS = {
                                      "options": {"template": "{{cle}}"}},
     ("formulations", "langue_code"): {"interface": "select-dropdown-m2o", "width": "half", "required": True,
                                       "options": {"template": "{{nom}}"}},
+    ("calendrier_passages", "id"): {"hidden": True, "readonly": True},
+    ("calendrier_passages", "date_debut"): {"interface": "datetime", "width": "half", "required": True},
+    ("calendrier_passages", "date_fin"): {"interface": "datetime", "width": "half", "required": True,
+                                          "note": "Dernier jour de passage (inclus)."},
+    ("calendrier_passages", "statut"): CHAMP_STATUT,
+    ("calendrier_passages", "date_maj"): {"special": ["date-updated"], "readonly": True, "width": "half"},
 }
 
 # Champs « liste » ajoutés sur un contenu pour éditer ses traductions et formulations.
@@ -125,7 +147,7 @@ FILTRE_NON_PUBLIE = {"statut": {"_in": NON_PUBLIES}}
 
 def droits_redacteur() -> list[dict]:
     droits = [{"collection": c, "action": "read"} for c in TOUTES]
-    for collection in ("contenus", "contenus_traductions"):
+    for collection in ("contenus", "contenus_traductions", "calendrier_passages"):
         droits.append({"collection": collection, "action": "create", "validation": FILTRE_NON_PUBLIE})
         droits.append({
             "collection": collection, "action": "update",
@@ -136,7 +158,8 @@ def droits_redacteur() -> list[dict]:
 
 def droits_validateur() -> list[dict]:
     droits = [{"collection": c, "action": a} for c in TOUTES for a in ("create", "read", "update")]
-    droits += [{"collection": c, "action": "delete"} for c in ("contenus_traductions", "formulations")]
+    droits += [{"collection": c, "action": "delete"}
+               for c in ("contenus_traductions", "formulations", "calendrier_passages")]
     return droits
 
 
@@ -207,6 +230,30 @@ def configurer_collections(d: Directus) -> None:
         })
 
 
+def choix_territoires(api_url: str) -> list[dict]:
+    """Territoires du référentiel (API), sinon ceux du fichier d'exemple du dépôt."""
+    try:
+        provinces = httpx.get(f"{api_url}/v1/territoires", timeout=10).raise_for_status().json()
+    except httpx.HTTPError:
+        chemin = Path(__file__).resolve().parents[1] / "donnees" / "territoires.csv"
+        with chemin.open(encoding="utf-8-sig") as f:
+            lignes = [l for l in csv.DictReader(f) if l["territoire_code"]]
+        return [{"text": f"{l['province_nom']} — {l['territoire_nom']}",
+                 "value": l["territoire_code"]} for l in lignes]
+    return [{"text": f"{p['nom']} — {t['nom']}", "value": t["code"]}
+            for p in provinces for t in p["territoires"]]
+
+
+def configurer_calendrier(d: Directus, api_url: str) -> None:
+    choix = choix_territoires(api_url)
+    d.appel("PATCH", "/fields/calendrier_passages/territoire_code", json={"meta": {
+        "interface": "select-dropdown", "display": "labels", "width": "half", "required": True,
+        "options": {"choices": choix}, "display_options": {"choices": choix},
+        "note": "Territoire ou ville du référentiel.",
+    }})
+    print(f"Calendrier configuré ({len(choix)} territoires proposés).")
+
+
 def configurer_roles(d: Directus) -> None:
     for nom, (icone, description, droits) in ROLES.items():
         politique = d.premier("/policies", "name", nom)
@@ -242,6 +289,7 @@ def main() -> None:
     )
     configurer_collections(d)
     print("Collections configurées.")
+    configurer_calendrier(d, os.environ.get("API_URL", "http://localhost:8000"))
     configurer_roles(d)
 
 

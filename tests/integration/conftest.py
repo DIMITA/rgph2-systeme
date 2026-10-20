@@ -51,9 +51,17 @@ def base_propre(moteur_admin):
             text(
                 "TRUNCATE coeur.interactions, coeur.signalements, contenus, "
                 "coeur.appels, coeur.rappels, coeur.enregistrements, coeur.ecoutes, "
-                "coeur.territoires, coeur.provinces RESTART IDENTITY CASCADE"
+                "coeur.badges, coeur.consultations, coeur.sms, coeur.preferences_langue, "
+                "calendrier_passages, coeur.territoires, coeur.provinces RESTART IDENTITY CASCADE"
             )
         )
+    from coeur.mobile.service import limiteur_badges
+    from coeur.sms.passerelle import passerelle
+    from coeur.ussd.service import memoire
+
+    limiteur_badges().reinitialiser()
+    passerelle().messages.clear()
+    memoire.vider()
     with Session(moteur_admin) as session:
         importer_csv(session, RACINE / "donnees" / "territoires.csv")
     cache.invalider()
@@ -71,6 +79,18 @@ def exemples(session_admin) -> dict[str, int]:
 
     ids = charger_exemples(session_admin)
     return {ex["cle"]: i for ex, i in zip(EXEMPLES, ids)}
+
+
+@pytest.fixture
+def badges(session_admin, tmp_path) -> None:
+    """AB1234 en service à Goma, XY9999 retiré (Kinshasa) ; tout autre badge est inconnu."""
+    from coeur.badges.service import importer_csv
+    from tests.conftest import PEPPER
+
+    fichier = tmp_path / "badges.csv"
+    fichier.write_text("numero,territoire_code,actif\nAB1234,NKV-GOM,1\nXY9999,KIN-V,0\n",
+                       encoding="utf-8")
+    importer_csv(session_admin, fichier, PEPPER)
 
 
 @pytest.fixture

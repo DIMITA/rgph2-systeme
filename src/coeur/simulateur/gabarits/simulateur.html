@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulateur de téléphone</title>
+<link rel="stylesheet" href="/statique/portail.css">
+<link rel="stylesheet" href="/statique/simulateur.css">
+</head>
+<body>
+<header><span class="marque">Simulateur de téléphone (tests)</span></header>
+<main>
+<p class="alerte">Page de test : chaque échange est traité comme un vrai (statistiques, signalements, rappels). Elle n'existe pas en production.</p>
+
+<h1>USSD</h1>
+{% if ecran %}
+<pre class="ecran" id="ecran-ussd">{{ ecran.texte }}</pre>
+{% if ecran.fin %}<p class="note" id="fin-ussd">Session terminée.</p>{% endif %}
+{% endif %}
+<form method="post" action="/simulateur/ussd" class="telephone">
+  <label for="numero-ussd">Numéro du téléphone</label>
+  <input id="numero-ussd" name="numero" value="{{ numero }}" inputmode="tel">
+  {% if ecran and not ecran.fin %}
+  <input type="hidden" name="session_ussd" value="{{ session_ussd }}">
+  <input type="hidden" name="historique" value="{{ historique }}">
+  <label for="saisie">Réponse</label>
+  <input id="saisie" name="saisie" autofocus autocomplete="off">
+  <button type="submit">Envoyer</button>
+  {% else %}
+  <button type="submit" id="composer">Composer {{ code }}</button>
+  {% endif %}
+</form>
+
+<h1>SMS</h1>
+{% if sms_envoye %}
+<div class="bulle vous"><p class="auteur">Vous</p><p>{{ sms_envoye }}</p></div>
+{% if sms_reponse %}<div class="bulle officielle" id="reponse-sms"><p class="auteur">RGPH2</p><p>{{ sms_reponse }}</p></div>{% endif %}
+<p class="note">Envoi de la réponse : {{ sms_statut or "aucune (expéditeur invalide)" }}</p>
+{% endif %}
+<form method="post" action="/simulateur/sms" class="telephone">
+  <label for="numero-sms">Numéro du téléphone</label>
+  <input id="numero-sms" name="numero" value="{{ numero }}" inputmode="tel">
+  <label for="message">Message</label>
+  <input id="message" name="message" placeholder="AIDE, AGENT AB1234, PASSAGE GOMA, ou une question" autocomplete="off">
+  <button type="submit">Envoyer le SMS</button>
+</form>
+</main>
+</body>
+</html>

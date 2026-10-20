@@ -30,6 +30,16 @@ x-env-coeur: &env-coeur
   # Adresse WebSocket d'Asterisk vue du navigateur des agents (wss://… en production).
   ASTERISK_WS_URL: ${ASTERISK_WS_URL:-ws://localhost:8088/ws}
   SIP_DOMAINE: ${SIP_DOMAINE:-rgph2.local}
+  # USSD et SMS
+  USSD_CODE: ${USSD_CODE:-}
+  SMS_PASSERELLE: kannel
+  KANNEL_URL: http://sms:13013/cgi-bin/sendsms
+  KANNEL_MDP: ${KANNEL_MDP:?à définir dans .env}
+  SMS_EXPEDITEUR: ${SMS_EXPEDITEUR:-RGPH2}
+  SMS_REPONSES_PAR_JOUR: ${SMS_REPONSES_PAR_JOUR:-10}
+  SMS_SEGMENTS_MAX: ${SMS_SEGMENTS_MAX:-3}
+  BADGES_VERIFICATIONS_PAR_HEURE: ${BADGES_VERIFICATIONS_PAR_HEURE:-10}
+  SIMULATEUR_MOBILE: ${SIMULATEUR_MOBILE:-false}
 
 x-url-api: &url-api postgresql+psycopg://rgph_api:${RGPH_API_MDP}@postgres:5432/rgph
 
@@ -133,6 +143,28 @@ services:
       api:
         condition: service_started
 
+  # Passerelle SMS (Kannel) : reçoit les SMS de l'opérateur (SMPP), les transmet au cœur
+  # et envoie les réponses. Son port d'envoi (13013) n'est pas publié hors de Docker.
+  sms:
+    build: ./sms
+    image: rgph2-sms:local
+    restart: unless-stopped
+    environment:
+      API_URL: http://api:8000
+      CLES_API: ${CLES_API:?à définir dans .env}
+      KANNEL_MDP: ${KANNEL_MDP:?à définir dans .env}
+      SMS_SIMULATION: ${SMS_SIMULATION:-false}
+      OPERATEUR_SMPP_HOTE: ${OPERATEUR_SMPP_HOTE:-}
+      OPERATEUR_SMPP_PORT: ${OPERATEUR_SMPP_PORT:-2775}
+      OPERATEUR_SMPP_UTILISATEUR: ${OPERATEUR_SMPP_UTILISATEUR:-}
+      OPERATEUR_SMPP_MDP: ${OPERATEUR_SMPP_MDP:-}
+      OPERATEUR_SMPP_SYSTEM_TYPE: ${OPERATEUR_SMPP_SYSTEM_TYPE:-}
+    volumes:
+      - file_sms:/var/spool/kannel
+    depends_on:
+      api:
+        condition: service_started
+
   directus:
     image: directus/directus:11.5.1
     restart: unless-stopped
@@ -169,12 +201,18 @@ services:
       DIRECTUS_URL: http://directus:8055
       DIRECTUS_ADMIN_EMAIL: ${DIRECTUS_ADMIN_EMAIL}
       DIRECTUS_ADMIN_MDP: ${DIRECTUS_ADMIN_MDP}
+      # Liste des territoires proposée dans le calendrier de passage.
+      API_URL: http://api:8000
     depends_on:
       directus:
         condition: service_healthy
+      api:
+        condition: service_started
 
 volumes:
   donnees_postgres:
   fichiers_directus:
   # Conversations enregistrées : écrites par Asterisk, purgées par le cœur.
   enregistrements:
+  # SMS en attente d'envoi (file de Kannel).
+  file_sms:

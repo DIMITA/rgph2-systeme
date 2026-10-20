@@ -9,19 +9,25 @@ from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from coeur.badges.routes import routeur as badges
 from coeur.base import session_db
+from coeur.calendrier.routes import routeur as calendrier
 from coeur.centre_appels.routes import routeur as centre_appels
 from coeur.tableau_de_bord.console import routeur as console_agents
 from coeur.config import parametres
 from coeur.connaissances.routes import routeur as connaissances
+from coeur.journalisation import proteger_journal_acces
 from coeur.portail.routes import routeur as portail
 from coeur.portail.securite import entetes_securite
 from coeur.signalements.routes import routeur as signalements
+from coeur.simulateur.routes import routeur as simulateur
+from coeur.sms.routes import routeur as sms
 from coeur.statistiques.routes import routeur as statistiques
 from coeur.tableau_de_bord.auth import CHEMIN as CHEMIN_TDB
 from coeur.tableau_de_bord.auth import DUREE_SESSION
 from coeur.tableau_de_bord.routes import routeur as tableau_de_bord
 from coeur.territoires.routes import routeur as territoires
+from coeur.ussd.routes import routeur as ussd
 
 app = FastAPI(
     title="RGPH-2 — Cœur",
@@ -32,6 +38,8 @@ app = FastAPI(
     ),
     version="0.1.0",
 )
+# Ni numéro, ni texte de SMS, ni clé dans le journal d'accès.
+proteger_journal_acces()
 app.add_middleware(GZipMiddleware, minimum_size=500)
 # Session du tableau de bord : cookie signé, limité à son chemin (le portail n'en pose aucun).
 app.add_middleware(
@@ -67,7 +75,7 @@ def sante(session: Session = Depends(session_db)) -> dict[str, str]:
 
 # Le portail en dernier : ses adresses (/fr, /ln…) ne doivent masquer aucune route de l'API.
 for routeur in (
-    connaissances, signalements, statistiques, territoires, centre_appels,
-    tableau_de_bord, console_agents, portail,
+    connaissances, signalements, statistiques, territoires, calendrier, badges, ussd, sms,
+    centre_appels, tableau_de_bord, console_agents, simulateur, portail,
 ):
     app.include_router(routeur)

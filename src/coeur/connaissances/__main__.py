@@ -1,9 +1,10 @@
-"""Contenus de démonstration : python -m coeur.connaissances charger-exemples"""
+"""Contenus et calendrier de démonstration : python -m coeur.connaissances charger-exemples"""
 
 import argparse
 import sys
 
 from coeur.base import nouvelle_session
+from coeur.calendrier.service import charger_exemples as charger_calendrier
 from coeur.config import parametres
 from coeur.connaissances.exemples import charger_exemples
 
@@ -18,7 +19,8 @@ def main() -> None:
         sys.exit("Refusé : les exemples ne sont pas validés par le BCR (ENVIRONNEMENT=production).")
     with nouvelle_session() as session:
         ids = charger_exemples(session)
-    print(f"{len(ids)} contenus d'exemple disponibles.")
+        periodes = charger_calendrier(session)
+    print(f"{len(ids)} contenus d'exemple et {periodes} dates de passage disponibles.")
 
 
 if __name__ == "__main__":

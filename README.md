@@ -6,7 +6,8 @@ Ce dépôt contient le **cœur commun** auquel se brancheront les six canaux du 
 - étape 2 : le **portail web et son chatbot**, premier canal branché ;
 - étape 3 : le **tableau de bord du Ministère** ;
 - étape 4a : le **centre d'appels** (numéro vert sur IP : serveur vocal, file d'attente, rappels, enregistrements) ;
-- étape 4b : la **console des agents** dans le navigateur et l'**écoute qualité**.
+- étape 4b : la **console des agents** dans le navigateur et l'**écoute qualité** ;
+- étape 5 : l'**USSD et les SMS** (menus, mots-clés, calendrier de passage, vérification des badges), avec la passerelle SMS Kannel.
 
 Le cœur fait trois choses :
 
@@ -27,6 +28,7 @@ Les contenus sont rédigés et validés par le Ministère dans **Directus** (le 
 - [Portail web et chatbot](#portail-web-et-chatbot)
 - [Tableau de bord du Ministère](#tableau-de-bord-du-ministère)
 - [Centre d'appels (numéro vert)](#centre-dappels-numéro-vert)
+- [USSD et SMS](#ussd-et-sms)
 - [Protection des données](#protection-des-données)
 - [Exploitation](#exploitation)
 - [Tests](#tests)
@@ -38,12 +40,12 @@ Les contenus sont rédigés et validés par le Ministère dans **Directus** (le 
 ## Vue d'ensemble
 
 ```
-  USSD/SMS  WhatsApp  Kiosques  Ambassadeurs     (étapes suivantes)   Numéro vert
-      └─────────┴─────────┴───────────┘                              │
-                              │                              ┌──────▼──────┐
-                              │                              │  Asterisk   │ SVI, file,
-                              │                              │ (conteneur) │ enregistrements
-                              │◄─────────────────────────────┴─────────────┘
+  WhatsApp  Kiosques  Ambassadeurs   USSD    SMS (SMPP)           Numéro vert
+      └─────────┴──────────┘          │   ┌───▼────┐                  │
+         (étapes suivantes)  agréga-  │   │ Kannel │           ┌──────▼──────┐
+                              teur    │   └───┬────┘           │  Asterisk   │ SVI, file,
+                              │◄──────┘◄──────┘                │ (conteneur) │ enregistrements
+                              │◄───────────────────────────────┴─────────────┘
                               │  HTTPS + clé d'API par canal
                      ┌────────▼─────────┐
    citoyen (web) ───►│   API « cœur »   │  FastAPI (Python), un seul déploiement
@@ -78,8 +80,14 @@ Chaque module est un dossier de `src/coeur/` qui contient `modeles.py` (tables),
 | `portail/` | Portail web citoyen et chatbot (canal « web ») : pages et textes de l'interface |
 | `centre_appels/` | Menu du serveur vocal, suivi des appels (empreinte du numéro), rappels chiffrés, enregistrements et leur purge |
 | `tableau_de_bord/` | Espaces connectés avec les comptes Directus : tableau de bord du Ministère, console des agents (`console.py`), écoute qualité |
+| `calendrier/` | Dates de passage des agents par territoire (saisies et validées dans Directus) |
+| `badges/` | Liste des badges d'agents (empreintes, import CSV de l'INS) et vérification |
+| `mobile/` | Socle commun USSD et SMS : textes courts, alphabet GSM, langue préférée, services, journal des consultations et des SMS |
+| `ussd/` | Menus USSD (`moteur.py`) rejoués à partir de la saisie cumulée |
+| `sms/` | Mots-clés et questions par SMS (`analyse.py`), envoi par Kannel (`passerelle.py`) avec plafond journalier |
+| `simulateur/` | Page de test imitant un téléphone basique (désactivée par défaut, jamais en production) |
 
-Fichiers transverses : `main.py` (assemblage), `config.py` (réglages), `securite.py` (clés d'API), `base.py` (base de données), `commun.py` (types partagés), `limiteur.py` (limite de débit par adresse IP).
+Fichiers transverses : `main.py` (assemblage), `config.py` (réglages), `securite.py` (clés d'API), `base.py` (base de données), `commun.py` (types partagés), `limiteur.py` (limite de débit), `journalisation.py` (journal d'accès sans paramètres d'adresse).
 
 ### Comment une question est traitée
 
@@ -110,8 +118,9 @@ docker compose up -d
 # 3. Importer le référentiel des territoires (voir donnees/LISEZMOI.md)
 docker compose run --rm migrations python -m coeur.territoires importer donnees/territoires.csv
 
-# 4. (Hors production) Charger la FAQ de démonstration
+# 4. (Hors production) Charger la FAQ et le calendrier de démonstration, et des badges fictifs
 docker compose run --rm migrations python -m coeur.connaissances charger-exemples
+docker compose run --rm migrations python -m coeur.badges importer donnees/badges-exemple.csv
 
 # 5. Vérifier toute la chaîne Directus → API
 python outils/verifier_pile.py      # avec les variables du .env chargées dans le shell
@@ -124,6 +133,7 @@ python outils/verifier_pile.py      # avec les variables du .env chargées dans 
 | Tableau de bord | http://localhost:8000/tableau-de-bord (comptes Directus autorisés) |
 | Téléphonie | SIP sur UDP 5060, audio sur UDP 10000-10050, postes WebRTC sur le port 8088 (voir [asterisk/LISEZMOI.md](asterisk/LISEZMOI.md)) |
 | Directus | http://localhost:8055 (compte administrateur : `DIRECTUS_ADMIN_EMAIL` / `DIRECTUS_ADMIN_MDP`) |
+| Simulateur de téléphone | http://localhost:8000/simulateur (si `SIMULATEUR_MOBILE=true`) |
 
 Au démarrage, `docker compose up` lance dans l'ordre :
 
@@ -131,7 +141,7 @@ Au démarrage, `docker compose up` lance dans l'ordre :
 - `migrations` crée ou met à jour les tables (Alembic), puis s'arrête ;
 - `api` et `directus` démarrent ;
 - `directus-config` règle l'affichage des collections et crée les rôles, puis s'arrête. Ce service peut être relancé sans risque ;
-- `asterisk` (téléphonie) et `taches` (purges du centre d'appels, toutes les heures) démarrent.
+- `asterisk` (téléphonie), `sms` (passerelle SMS Kannel) et `taches` (purges du centre d'appels, toutes les heures) démarrent.
 
 ---
 
@@ -184,6 +194,10 @@ La documentation complète est générée automatiquement sur `/docs`. Chaque ap
 | `PATCH /v1/signalements/{id}` | Ministère | Changer le statut : `nouveau`, `en_traitement`, `clos` |
 | `GET /v1/statistiques?niveau=territoire` | Ministère | Statistiques. `niveau` vaut `national`, `province` ou `territoire` |
 | `GET /v1/territoires` | aucune | Référentiel des provinces et territoires |
+| `GET /v1/calendrier/{territoire}` | canal | Dates de passage publiées pour un territoire |
+| `POST /v1/badges/verification` | canal | Vérifier un badge : `valide`, `retire` ou `inconnu` |
+| `POST /v1/ussd` | ussd | Échange USSD (agrégateur) : réponse `CON …` ou `END …` |
+| `GET /v1/sms/entrant` | sms | SMS reçu, transmis par Kannel |
 | `GET /sante` | aucune | État du service (pour la supervision) |
 
 ### Exemple : poser une question
@@ -318,6 +332,62 @@ Adresse : `/tableau-de-bord/agent`, réservée au rôle Directus *Agent centre d
 
 Adresse : `/tableau-de-bord/qualite`, réservée au rôle *Superviseur qualité*. On y trouve la liste des conversations (date, poste, langue, durée, issue) et l'écoute dans le navigateur. **Chaque écoute est journalisée** (compte, date, fichier). Ce journal survit à la suppression de l'enregistrement et n'est effacé qu'à la purge de fin de conservation.
 
+## USSD et SMS
+
+Deux canaux pour **tout téléphone, même sans internet**. Ils offrent les mêmes services, et le SMS sert aussi de **repli si les opérateurs refusent l'USSD** (voir les risques dans architecture.md). Le détail technique et la fiche pour l'opérateur sont dans [sms/LISEZMOI.md](sms/LISEZMOI.md).
+
+### Ce que vit le citoyen
+
+**USSD** (code `*xxx#`, à obtenir auprès de l'ARPTC). Au premier appel, il choisit sa langue, qui est ensuite retenue. Il trouve ensuite ce menu :
+
+| Touche | Service |
+| --- | --- |
+| 1 | **Questions fréquentes** : réponse courte validée, et réponse complète par SMS sur demande |
+| 2 | **Date de passage des agents** : province, puis territoire |
+| 3 | **Vérifier un agent** : numéro du badge, réponse « valide », « retiré » ou « inconnu ». Si le badge est inconnu, il peut signaler l'agent |
+| 4 | **Ménage non recensé** : territoire, quartier ou village (facultatif), puis confirmation |
+| 5 | **Parler à un conseiller** : numéro vert, ou demande de rappel. La demande arrive dans la console des agents |
+| 6 | Changer de langue |
+
+Un écran fait 182 caractères au plus. Une liste trop longue continue avec « 98 Suite », et « 0 » revient à l'écran précédent.
+
+**SMS** : les mots-clés ci-dessous sont les mêmes dans toutes les langues. Majuscules, accents et tirets sont indifférents.
+
+| Message | Réponse |
+| --- | --- |
+| `AIDE` | La liste des mots-clés |
+| `AGENT AB1234` | Le badge est valide (avec son territoire), retiré ou inconnu |
+| `PASSAGE GOMA` | Les dates de passage dans ce territoire (nom ou code) |
+| `NONVISITE GOMA Himbi 2` | Le signalement d'un ménage non recensé, avec le quartier |
+| `FAUXAGENT GOMA AB1234` | Le signalement d'un faux agent, avec le badge présenté |
+| `RAPPEL` | La demande de rappel par un conseiller |
+| `LANGUE ln` | Le changement de langue (code ou nom) |
+| Toute autre phrase | Une question pour la base fermée : réponse validée ou escalade (numéro vert, RAPPEL) |
+
+Une phrase qui commence par un mot-clé mais ressemble à une question (« agent recenseur faux, que faire ? ») est traitée comme une question.
+
+### Ce que fait le Ministère
+
+- **Calendrier de passage** : dans Directus, collection *Calendrier passages*. On y saisit une ou plusieurs périodes par territoire. Le circuit est celui des contenus : seul le Validateur BCR publie. Le menu des territoires vient du référentiel : il faut relancer `docker compose up directus-config` après chaque import de territoires.
+- **Liste des badges** : l'INS fournit un fichier CSV (`numero,territoire_code,actif`, avec 1 pour un badge en service et 0 pour un badge retiré), sans nom ni photo. **Chaque import remplace toute la liste** ; un fichier qui contient une seule ligne invalide est refusé en entier.
+  ```bash
+  docker compose run --rm migrations python -m coeur.badges importer /chemin/badges.csv
+  ```
+  Les numéros sont conservés sous forme d'**empreinte** : une copie de la table ne permet pas de fabriquer un faux badge « valide ». Chaque numéro de téléphone est limité à `BADGES_VERIFICATIONS_PAR_HEURE` vérifications par heure, contre les essais au hasard.
+- **Textes des menus et des messages** : `src/coeur/mobile/textes/` (français, et une proposition en lingala à faire relire). Voir le [LISEZMOI](src/coeur/mobile/textes/LISEZMOI.md) de ce dossier.
+
+### Ce qui est compté
+
+Le tableau de bord présente une section *USSD et SMS* : dates de passage consultées, badges valides, badges inconnus ou retirés, SMS reçus, **SMS envoyés en segments facturés** (le coût chez l'opérateur), et réponses non envoyées à cause du plafond. Les questions et les signalements USSD et SMS sont comptés avec ceux des autres canaux.
+
+**Coût des SMS** : chaque numéro reçoit au plus `SMS_REPONSES_PAR_JOUR` réponses par jour (10 par défaut). Au-delà, les messages reçus sont traités mais ne reçoivent plus de réponse. Une réponse plus longue que `SMS_SEGMENTS_MAX` SMS (3 par défaut) est remplacée par sa version courte : une réponse validée n'est **jamais tronquée**.
+
+### Tester sans opérateur
+
+- **Simulateur** : avec `SIMULATEUR_MOBILE=true`, la page http://localhost:8000/simulateur imite un téléphone basique (USSD et SMS). Chaque échange y est traité comme un vrai.
+- **De bout en bout** : avec `SMS_SIMULATION=true`, Kannel remplace l'opérateur par un simulateur. Ensuite, `python outils/verifier_mobile.py` passe une session USSD, envoie des SMS à travers Kannel et vérifie qu'aucun numéro n'apparaît en clair.
+- **Badges fictifs** : `donnees/badges-exemple.csv` (EX0001 à EX0003 en service, EX0099 retiré).
+
 ---
 
 ## Protection des données
@@ -338,6 +408,8 @@ Ces règles sont **appliquées par le code** et **vérifiées par des tests**, p
 | Numéro à rappeler révélé à un seul agent | Affiché seulement à l'agent qui prend le rappel (verrou en base), jamais dans les listes | `test_prendre_et_cloturer_un_rappel`, `test_liste_des_rappels_sans_numero` |
 | Écoute des enregistrements | Réservée au rôle Superviseur qualité. Chaque écoute est journalisée, et le journal survit à la suppression du fichier | `test_ecoute_journalisee`, `test_journal_des_ecoutes_conserve_apres_suppression` |
 | Téléphonie sans trace en clair | Pas de CDR, de CEL ni de journal de file. Journaux d'Asterisk sans numéros | `test_logs_et_cdr_sans_numero_en_clair`, `outils/verifier_telephonie.py` |
+| Badges des agents | Stockés sous forme d'empreinte. Vérifications plafonnées par numéro | `test_badges_stockes_sous_forme_d_empreinte`, `test_verifications_de_badge_plafonnees` |
+| USSD et SMS sans trace en clair | Le numéro ne sert qu'à répondre et n'est pas conservé (empreinte seulement). Le journal des SMS ne garde ni texte ni numéro. Le journal d'accès de l'API retire les paramètres d'adresse (numéro, texte, clé) et Kannel n'écrit que les avertissements | `test_aucun_numero_en_clair`, `test_journal_d_acces_sans_parametres`, `outils/verifier_mobile.py` |
 | Contenus validés seulement | L'API ne lit que les contenus `publie`. Seul le rôle Validateur BCR peut publier | `test_questions.py`, `outils/verifier_pile.py` |
 
 **La clé `PEPPER_TELEPHONE` est un secret critique.** Il faut la conserver dans un coffre-fort et **ne jamais la changer en cours d'opération** : les usagers ne seraient plus reconnus. Sa fuite permettrait de retrouver un numéro à partir de son empreinte, par essais successifs.
@@ -401,6 +473,14 @@ python outils/verifier_pile.py
 | `ASTERISK_WS_URL` | ws://localhost:8088/ws | Adresse WebSocket d'Asterisk vue du navigateur des agents (`wss://…` en production) |
 | `SIP_DOMAINE` | rgph2.local | Domaine SIP des postes |
 | `TELEPHONIE_SIMULATION`, `SIMULATEUR_MDP` | false, (vide) | Appels simulés et téléphone logiciel de test. **Jamais en production** |
+| `USSD_CODE` | (vide) | Code court USSD, affiché par le simulateur |
+| `KANNEL_MDP` | (aucun) | Mot de passe du compte d'envoi de Kannel (API et passerelle SMS) |
+| `SMS_EXPEDITEUR` | RGPH2 | Nom ou numéro court affiché comme expéditeur, à convenir avec l'opérateur |
+| `SMS_REPONSES_PAR_JOUR` | 10 | Plafond de réponses par SMS par numéro et par jour |
+| `SMS_SEGMENTS_MAX` | 3 | Longueur maximale d'une réponse ; au-delà, la version courte est envoyée |
+| `BADGES_VERIFICATIONS_PAR_HEURE` | 10 | Vérifications de badge par numéro et par heure |
+| `OPERATEUR_SMPP_*` | (vide) | Liaison SMPP de l'opérateur (voir [sms/LISEZMOI.md](sms/LISEZMOI.md)) |
+| `SMS_SIMULATION`, `SIMULATEUR_MOBILE` | false, false | Opérateur SMS simulé et page `/simulateur`. **Jamais en production** |
 
 ### Avant la mise en production
 
@@ -413,6 +493,7 @@ python outils/verifier_pile.py
 - [ ] Faire l'audit de sécurité prévu avant l'ouverture de chaque canal.
 - [ ] Centre d'appels : obtenir la liaison SIP et le numéro vert (fiche dans `asterisk/LISEZMOI.md`), faire enregistrer les messages vocaux, ranger `CLE_CHIFFREMENT` dans le coffre-fort, `TELEPHONIE_SIMULATION=false` et `SVI_SYNTHESE_PROVISOIRE=false`.
 - [ ] Faire valider par le point focal protection des données l'enregistrement des appels (annonce, durée de 90 jours, accès).
+- [ ] USSD et SMS : obtenir le code court (ARPTC), la liaison SMPP et un agrégateur USSD (fiche dans `sms/LISEZMOI.md`). Importer la vraie liste des badges, saisir et publier le calendrier, faire relire les textes en lingala. Mettre `SMS_SIMULATION=false` et `SIMULATEUR_MOBILE=false`.
 - [ ] Console des agents : publier le WebSocket d'Asterisk (port 8088) **en `wss://` derrière le proxy HTTPS**, et renseigner `ASTERISK_WS_URL`. Les navigateurs n'autorisent le micro que sur un site en HTTPS. Renseigner `SIP_ADRESSE_EXTERNE` avec l'adresse IP publique.
 
 ---
@@ -426,9 +507,10 @@ docker compose -f docker-compose.test.yml up -d     # base jetable, port 5433
 pytest
 ```
 
-- `tests/unitaires/` : moteur de recherche, confidentialité, limiteur de débit. Ces tests ne demandent pas de base.
+- `tests/unitaires/` : moteur de recherche, confidentialité, limiteur de débit, alphabet GSM, mots-clés SMS, longueur des écrans USSD dans chaque langue. Ces tests ne demandent pas de base.
 - `tests/integration/` : API de bout en bout contre PostgreSQL, migrations, droits des rôles. Chaque lancement repart d'une base vide et vérifie au passage que les migrations s'appliquent et s'annulent.
 - `outils/verifier_console_agent.py` : la console des agents dans un vrai navigateur (Edge piloté par Playwright, micro factice). Connexion du poste, appel décroché et enregistré avec du son, qualification, pause, rappel, écoute qualité journalisée. Prérequis : `pip install -e ".[e2e]"`.
+- `outils/verifier_mobile.py` : une session USSD, puis des SMS envoyés par l'opérateur simulé de Kannel (aller et retour), et le contrôle de l'absence de numéro en clair dans la base et les journaux. Il faut `SMS_SIMULATION=true`.
 - `outils/verifier_telephonie.py` : trois appels simulés (serveur vocal, rappel, agent) et contrôle de l'absence de numéro en clair. Il faut `TELEPHONIE_SIMULATION=true`.
 - `outils/verifier_pile.py` : vérification sur la pile complète, Directus compris : circuit de validation et connexion au tableau de bord. Il ne journalise qu'une seule question, pour ne pas fausser les statistiques.
 
@@ -447,7 +529,9 @@ Penser aux droits des rôles (voir `_droits()` dans `migrations/versions/0001_sc
 
 **Ajouter un module.** Créer `src/coeur/<module>/` avec `modeles.py`, `schemas.py`, `service.py` et `routes.py`. Déclarer ses modèles dans `src/coeur/modeles.py` et son routeur dans `src/coeur/main.py`.
 
-**Brancher un canal** (étapes suivantes). Un canal externe (passerelle USSD, bot WhatsApp…) appelle l'API avec sa clé ; il ne lit jamais la base directement. Seul le portail web, qui fait partie du cœur, appelle directement `connaissances.service.traiter_question`. En cas d'`escalade`, il passe la main à un humain. Pour l'USSD et le SMS, utiliser `reponse_courte`.
+**Brancher un canal** (étapes suivantes). Un canal externe (bot WhatsApp, kiosque…) appelle l'API avec sa clé ; il ne lit jamais la base directement. En cas d'`escalade`, il passe la main à un humain. Le calendrier (`/v1/calendrier`) et la vérification des badges (`/v1/badges/verification`) sont à sa disposition.
+
+**Changer d'agrégateur USSD.** `POST /v1/ussd` suit le format le plus répandu (`sessionId`, `phoneNumber`, `text` cumulé, réponse `CON`/`END`). Pour un autre format, ajouter une route qui traduit les champs puis appelle `ussd.service.traiter` ; le moteur ne change pas.
 
 **Changer de moteur de recherche** (par exemple Rasa, après évaluation langue par langue). Écrire une classe qui respecte `MoteurRecherche` (`connaissances/moteur.py`) et l'instancier dans `connaissances/depot.py`. La règle de décision (`decider`) et l'escalade ne changent pas. Garder les tests de `test_moteur.py` comme référence de qualité.
 
@@ -466,4 +550,7 @@ Penser aux droits des rôles (voir `_droits()` dans `migrations/versions/0001_sc
 - **Postes partagés** : un poste ne sert qu'à un agent à la fois. Un second agent qui prend le même poste déconnecte le premier.
 - **Rappel resté « en cours »** : si l'agent qui l'a pris ne le clôture pas, le rappel reste bloqué jusqu'à l'expiration automatique (7 jours). L'administrateur peut le clôturer depuis son propre compte agent.
 - **Codecs** : postes et opérateur en G.711 (A-law, µ-law), sans transcodage. Asterisk n'a pas de module Opus libre.
+- **Sessions USSD rejouées** : le menu est recalculé à chaque échange à partir de la saisie cumulée. Il ne dépend donc d'aucune mémoire de session, et une demande répétée par la passerelle ne crée pas de doublon pendant 5 minutes. Ce format est celui de la plupart des agrégateurs ; un opérateur qui n'envoie que la dernière saisie demandera une petite route d'adaptation.
+- **Plafonds USSD et SMS** : le plafond de vérifications de badge est compté en mémoire, comme la limite de débit du portail. Le plafond de SMS, lui, est compté en base.
+- **Textes USSD et SMS** : en français, avec une proposition en lingala à relire. Les autres langues affichent les menus en français, mais servent les réponses validées dans leur langue.
 - **Exemples de contenus** : ils sont en français seulement et marqués `[EXEMPLE non validé]`. Aucun texte en langue nationale n'est fourni : il doit venir de traducteurs et être validé par le BCR.

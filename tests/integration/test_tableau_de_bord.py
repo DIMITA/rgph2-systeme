@@ -204,3 +204,18 @@ def test_filtre_de_dates_a_l_heure_locale(connecte, activite, session_admin):
     session_admin.commit()
     r = connecte.get("/tableau-de-bord/export.csv?depuis=2027-05-01&jusqu_a=2027-05-01")
     assert "interactions;national;RDC;RDC;10;" in r.text
+
+
+def test_synthese_ussd_et_sms(connecte, session_admin):
+    from coeur.mobile.modeles import Consultation, MessageSms
+
+    session_admin.add_all(
+        [Consultation(canal="ussd", service="badge", resultat="inconnu", langue="fr",
+                      territoire_code="NKV-GOM") for _ in range(6)]
+        + [MessageSms(sens="sortant", usager_empreinte="e" * 64, statut="envoye", segments=2)
+           for _ in range(4)])
+    session_admin.commit()
+    html = connecte.get("/tableau-de-bord").text
+    assert "USSD et SMS" in html
+    assert '<span class="valeur">6</span><span>badges inconnus ou retirés' in html
+    assert '<span class="valeur">8</span><span>SMS envoyés (segments facturés)' in html

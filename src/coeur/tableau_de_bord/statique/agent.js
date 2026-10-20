@@ -264,7 +264,7 @@
         liste.forEach(function (r) {
           var ligne = corps.insertRow();
           ligne.insertCell().textContent = r.cree_a;
-          ligne.insertCell().textContent = r.langue_nom;
+          ligne.insertCell().textContent = r.langue_nom + " · " + r.origine;
           var action = ligne.insertCell();
           if (r.statut === "en_cours" && !r.pris_par_moi) action.textContent = "Pris par un autre agent";
           else action.appendChild(bouton(r.pris_par_moi ? "Reprendre" : "Prendre", "",

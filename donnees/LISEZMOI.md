@@ -24,3 +24,11 @@ Avant la mise en service :
    ```
 
 Ne jamais ajouter de niveau plus fin (secteur, chefferie, groupement, village) dans ce référentiel. Le territoire est la maille la plus fine des statistiques.
+
+## badges-exemple.csv : badges fictifs
+
+Quatre badges **inventés** pour les tests et les démonstrations (EX0001 à EX0003 en service, EX0099 retiré). La vraie liste est fournie par l'INS ; voir le README, section « USSD et SMS ».
+
+```
+docker compose run --rm migrations python -m coeur.badges importer donnees/badges-exemple.csv
+```

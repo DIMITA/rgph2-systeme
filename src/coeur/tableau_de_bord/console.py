@@ -34,6 +34,8 @@ AGENTS = exiger("agents")
 QUALITE = exiger("qualite")
 PAR_PAGE = 50
 NB_RESULTATS_RECHERCHE = 5
+# Canal par lequel le citoyen a demandé à être rappelé.
+ORIGINES = {"appel": "Numéro vert", "ussd": "USSD", "sms": "SMS"}
 
 LIBELLES_QUALIFICATION = {
     "renseigne": "Citoyen renseigné",
@@ -182,6 +184,7 @@ def rappels(
     noms = {l.code: l.nom for l in connaissances.langues_actives(session)}
     return [
         {"id": r.id, "cree_a": heure_locale(r.cree_a), "langue_nom": noms.get(r.langue or "", "—"),
+         "origine": ORIGINES.get(r.origine, r.origine),
          "statut": r.statut, "pris_par_moi": r.traite_par == utilisateur.email}
         for r in centre.rappels_ouverts(session)
     ]

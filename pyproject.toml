@@ -35,6 +35,7 @@ where = ["src"]
 coeur = [
     "portail/gabarits/*.html", "portail/statique/*", "portail/textes/*.json",
     "tableau_de_bord/gabarits/*.html", "tableau_de_bord/statique/*",
+    "mobile/textes/*.json", "simulateur/gabarits/*.html",
 ]
 
 [tool.pytest.ini_options]

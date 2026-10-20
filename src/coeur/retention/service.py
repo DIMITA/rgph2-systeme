@@ -3,9 +3,11 @@ from datetime import datetime
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
+from coeur.badges.modeles import Badge
 from coeur.centre_appels.modeles import Appel, Ecoute, Rappel
 from coeur.centre_appels.service import supprimer_enregistrements_avant
 from coeur.interactions.modeles import Interaction
+from coeur.mobile.modeles import Consultation, MessageSms, PreferenceLangue
 from coeur.signalements.modeles import Signalement
 
 
@@ -22,6 +24,14 @@ def purger(session: Session, avant: datetime) -> dict[str, int]:
         "appels": session.execute(delete(Appel).where(Appel.debut < avant)).rowcount,
         "rappels": session.execute(delete(Rappel).where(Rappel.cree_a < avant)).rowcount,
         "ecoutes": session.execute(delete(Ecoute).where(Ecoute.ecoute_a < avant)).rowcount,
+        "consultations": session.execute(
+            delete(Consultation).where(Consultation.horodatage < avant)
+        ).rowcount,
+        "sms": session.execute(delete(MessageSms).where(MessageSms.horodatage < avant)).rowcount,
+        "badges": session.execute(delete(Badge).where(Badge.importe_a < avant)).rowcount,
+        "preferences_langue": session.execute(
+            delete(PreferenceLangue).where(PreferenceLangue.maj_a < avant)
+        ).rowcount,
     }
     session.commit()
     resultat["enregistrements"] = supprimer_enregistrements_avant(session, avant)

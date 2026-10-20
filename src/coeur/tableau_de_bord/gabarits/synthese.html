@@ -37,6 +37,16 @@
   <div class="chiffre"><span class="valeur">{% if appels.attente_moyenne is not none %}{{ appels.attente_moyenne }} s{% else %}—{% endif %}</span><span>attente moyenne avant décroché</span></div>
 </div>
 
+<h2 class="section">USSD et SMS</h2>
+<div class="chiffres">
+  <div class="chiffre"><span class="valeur">{{ nb(mobile.passages, seuil) }}</span><span>dates de passage consultées</span></div>
+  <div class="chiffre"><span class="valeur">{{ nb(mobile.badges_valides, seuil) }}</span><span>badges vérifiés valides</span></div>
+  <div class="chiffre"><span class="valeur">{{ nb(mobile.badges_douteux, seuil) }}</span><span>badges inconnus ou retirés</span></div>
+  <div class="chiffre"><span class="valeur">{{ nb(mobile.sms_recus, seuil) }}</span><span>SMS reçus</span></div>
+  <div class="chiffre"><span class="valeur">{{ nb(mobile.sms_segments, seuil) }}</span><span>SMS envoyés (segments facturés)</span></div>
+  <div class="chiffre"><span class="valeur">{{ nb(mobile.sms_plafonnes, seuil) }}</span><span>réponses non envoyées (plafond journalier)</span></div>
+</div>
+
 <div class="grille">
   {{ repartition("Questions par canal", repartitions.canal, "nb_interactions", noms, seuil, maximum, escalades=true) }}
   {{ repartition("Questions par langue", repartitions.langue, "nb_interactions", noms, seuil, maximum, escalades=true) }}

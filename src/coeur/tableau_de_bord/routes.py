@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from coeur.base import session_db
 from coeur.config import Parametres, parametres
 from coeur.centre_appels.service import statistiques_appels
+from coeur.mobile.statistiques import statistiques_mobile
 from coeur.connaissances.service import langues_actives
 from coeur.interactions import service as interactions
 from coeur.limiteur import LimiteurDebit
@@ -185,6 +186,8 @@ def synthese(
         signalements_total=donnees["signalements_total"][0] if donnees["signalements_total"] else None,
         repartitions=donnees, noms=_libelles(session), maximum=_maximum,
         appels=statistiques_appels(session, debut, fin, ZoneInfo(reglages.fuseau_horaire),
+                                   reglages.seuil_secret_statistique),
+        mobile=statistiques_mobile(session, debut, fin, ZoneInfo(reglages.fuseau_horaire),
                                    reglages.seuil_secret_statistique),
     )
 
