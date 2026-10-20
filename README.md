@@ -597,13 +597,21 @@ Penser aux droits des rôles (voir `_droits()` dans `migrations/versions/0001_sc
 
 **Changer d'agrégateur USSD.** `POST /v1/ussd` suit le format le plus répandu (`sessionId`, `phoneNumber`, `text` cumulé, réponse `CON`/`END`). Pour un autre format, ajouter une route qui traduit les champs puis appelle `ussd.service.traiter` ; le moteur ne change pas.
 
+**Évaluer le moteur langue par langue.** Rassembler de vraies questions (centre d'écoute, Ambassadeurs, questions escaladées du tableau de bord) dans un CSV `langue,question,attendu`, où `attendu` est la clé du contenu qui doit répondre, ou vide pour une question hors champ. Puis, sur la base qui sert l'API :
+
+```bash
+python -m coeur.connaissances.evaluation questions.csv --seuils 0.4,0.5,0.6 --details
+```
+
+Pour chaque langue : réponses justes, **fausses** (un autre contenu que le bon : la pire issue), escalades à tort et réponses à une question hors champ. Rien n'est journalisé. Modèle : `donnees/evaluation_exemple.csv`. Comparer plusieurs seuils aide à régler `SEUIL_CONFIANCE` ; les escalades à tort se corrigent d'abord en ajoutant des formulations dans Directus.
+
 **Changer de moteur de recherche** (par exemple Rasa, après évaluation langue par langue). Écrire une classe qui respecte `MoteurRecherche` (`connaissances/moteur.py`) et l'instancier dans `connaissances/depot.py`. La règle de décision (`decider`) et l'escalade ne changent pas. Garder les tests de `test_moteur.py` comme référence de qualité.
 
 ---
 
 ## Limites connues et points à trancher
 
-- **Moteur de recherche** : il est lexical (mots et variantes). Il fonctionne bien en français sur la FAQ d'exemple. Pour les langues nationales, la qualité dépendra surtout des **formulations** saisies. Il faut l'évaluer langue par langue avec de vraies questions.
+- **Moteur de recherche** : il est lexical (mots et variantes). Il fonctionne bien en français sur la FAQ d'exemple. Pour les langues nationales, la qualité dépendra surtout des **formulations** saisies. Il faut l'évaluer langue par langue avec de vraies questions : l'outil existe (`python -m coeur.connaissances.evaluation`, voir « Faire évoluer le code »), les questions réelles en langues nationales manquent encore.
 - **Secret statistique** : petites cases masquées, puis masquage complémentaire dans chaque tableau publié (toutes les marges, et les territoires d'une même province). C'est une règle simple, pas une optimisation : elle masque parfois plus que le strict nécessaire, et elle ne couvre pas un croisement entre deux périodes choisies par l'utilisateur (du 1er au 10 moins du 1er au 9). Les chiffres des centres d'appels, de l'USSD et de WhatsApp sont des totaux nationaux, sans répartition à soustraire. À faire valider par le point focal protection des données avant toute publication externe.
 - **Texte des questions** : il est conservé, masqué, pour améliorer la FAQ. Un citoyen peut néanmoins y écrire un nom. `CONSERVATION_TEXTE_QUESTIONS=escalades` ne garde que les questions restées sans réponse (celles qui servent à enrichir la FAQ), `aucun` n'en garde aucune. Le choix revient au point focal protection des données.
 - **Territoires** : le fichier fourni est un échantillon aux codes provisoires.
