@@ -6,14 +6,20 @@ Contrat (celui qu'attend coeur.comprehension.transcription) :
     → 422 langue non prise en charge ou audio illisible ; 413 audio trop long
     GET /sante → {"statut": "ok", "modele": "…", "langues": ["fr", "ln", …]}
 
-Modèle par défaut : Meta MMS (« Massively Multilingual Speech », facebook/mms-1b-all,
-licence CC-BY-NC 4.0), un adaptateur par langue. Rien n'est écrit sur disque : l'audio
-est décodé en mémoire par ffmpeg, transcrit, puis oublié. Aucun journal ne contient
-de texte transcrit.
+Deux moteurs, au choix (MOTEUR) :
+- « mms » (défaut) : Meta MMS (facebook/mms-1b-all, licence CC-BY-NC 4.0), un adaptateur
+  par langue ; ne connaît ni le kikongo ni le tshiluba ;
+- « omnilingual » : Meta Omnilingual ASR (fairseq2, code Apache 2.0), plus de 1 600
+  langues, dont le tshiluba. Le code « - » transcrit sans indiquer de langue au modèle
+  (kikongo : le modèle n'a pas de code pour lui).
+
+Rien n'est écrit sur disque : l'audio est décodé en mémoire par ffmpeg, transcrit, puis
+oublié. Aucun journal ne contient de texte transcrit.
 
 Réglages (variables d'environnement) :
-    MODELE         identifiant du modèle (défaut facebook/mms-1b-all)
-    CODES_LANGUES  code du cœur → code du modèle (défaut fr:fra,ln:lin,sw:swh,kg:kng,lua:lua)
+    MOTEUR         mms ou omnilingual (défaut mms)
+    MODELE         identifiant du modèle (défaut selon le moteur)
+    CODES_LANGUES  code du cœur → code du modèle (défaut selon le moteur)
     DUREE_MAX      secondes d'audio au plus (défaut 180)
 """
 
@@ -86,6 +92,49 @@ class MoteurMMS:
         return " ".join(m.strip() for m in morceaux if m.strip())
 
 
+class MoteurOmnilingual:
+    """Omnilingual ASR. Le modèle refuse plus de 40 s : l'audio passe par tranches de 30 s."""
+
+    SANS_LANGUE = "-"
+
+    def __init__(self, modele: str, codes: dict[str, str]):
+        import torch
+        from omnilingual_asr.models.inference.pipeline import ASRInferencePipeline
+        from omnilingual_asr.models.wav2vec2_llama.lang_ids import supported_langs
+
+        self.nom = modele
+        # Sur processeur, bfloat16 est lent ou absent : float32.
+        type_ = torch.bfloat16 if torch.cuda.is_available() else torch.float32
+        self.pipeline = ASRInferencePipeline(model_card=modele, dtype=type_)
+        connus = set(supported_langs) | {self.SANS_LANGUE}
+        self.codes = {c: m for c, m in codes.items() if m in connus}
+        for code, modele_code in codes.items():
+            if code not in self.codes:
+                journal.warning("Langue %s (%s) absente du modèle %s", code, modele_code, modele)
+        self._verrou = threading.Lock()
+
+    def langues(self) -> list[str]:
+        return sorted(self.codes)
+
+    def transcrire(self, signal: np.ndarray, langue: str) -> str:
+        code = self.codes[langue]
+        pas = TRANCHE_SECONDES * FREQUENCE
+        tranches = [{"waveform": signal[debut:debut + pas], "sample_rate": FREQUENCE}
+                    for debut in range(0, len(signal), pas)]
+        with self._verrou:
+            textes = self.pipeline.transcribe(
+                tranches, lang=[None if code == self.SANS_LANGUE else code] * len(tranches),
+                batch_size=1)
+        return " ".join(t.strip() for t in textes if t.strip())
+
+
+MOTEURS = {
+    "mms": (MoteurMMS, "facebook/mms-1b-all", "fr:fra,ln:lin,sw:swh,kg:kng,lua:lua"),
+    "omnilingual": (MoteurOmnilingual, "omniASR_LLM_1B",
+                    "fr:fra_Latn,ln:lin_Latn,sw:swh_Latn,lua:lua_Latn,kg:-"),
+}
+
+
 def decoder(audio: bytes) -> np.ndarray:
     """N'importe quel format audio → mono 16 kHz float32, en mémoire (ffmpeg)."""
     resultat = subprocess.run(
@@ -125,7 +174,7 @@ def creer_app(moteur: Moteur, duree_max: float = 180) -> FastAPI:
 def app_depuis_environnement() -> FastAPI:
     """Point d'entrée d'uvicorn : `uvicorn serveur:app_depuis_environnement --factory`."""
     logging.basicConfig(level=logging.INFO)
-    moteur = MoteurMMS(os.environ.get("MODELE", "facebook/mms-1b-all"),
-                       codes_langues(os.environ.get("CODES_LANGUES",
-                                                    "fr:fra,ln:lin,sw:swh,kg:kng,lua:lua")))
+    classe, modele, codes = MOTEURS[os.environ.get("MOTEUR", "mms")]
+    moteur = classe(os.environ.get("MODELE", modele),
+                    codes_langues(os.environ.get("CODES_LANGUES", codes)))
     return creer_app(moteur, float(os.environ.get("DUREE_MAX", "180")))

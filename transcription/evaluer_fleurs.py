@@ -2,7 +2,8 @@
 
 FLEURS contient des phrases lues par des locuteurs natifs, dont du lingala de RDC
 (ln_cd), du kiswahili (sw_ke) et du français (fr_fr). Pas de kikongo ni de tshiluba :
-pour ces langues, seule la présence d'un adaptateur dans le modèle est vérifiée.
+pour ces langues, on vérifie que le modèle les connaît, et l'on cherche des
+enregistrements dans le corpus d'Omnilingual ASR (facebook/omnilingual-asr-corpus).
 
 Ce ne sont pas des questions sur le recensement : on mesure ici la transcription
 seule (taux d'erreur de mots, temps de calcul), pas la reconnaissance du sujet. Chaque
@@ -10,6 +11,7 @@ enregistrement passe d'abord au format des messages vocaux de WhatsApp (Ogg/Opus
 puis par le service HTTP réel (serveur.creer_app), comme en production.
 
     python transcription/evaluer_fleurs.py --nombre 40 --sortie rapport.md
+    python transcription/evaluer_fleurs.py --moteur omnilingual --modele omniASR_LLM_1B
 """
 
 import argparse
@@ -31,9 +33,10 @@ from coeur.connaissances.evaluation import taux_erreur_mots  # noqa: E402
 
 # Code du cœur → configuration FLEURS.
 CORPUS = {"fr": "fr_fr", "ln": "ln_cd", "sw": "sw_ke"}
-CODES_MODELE = "fr:fra,ln:lin,sw:swh,kg:kng,lua:lua"
-# Codes à chercher pour le kikongo (koongo, kituba, kikongo, San Salvador) et le tshiluba.
-CODES_A_VERIFIER = ["kng", "ktu", "kon", "kwy", "lua"]
+# Codes à chercher pour le kikongo (koongo, kituba, kikongo, San Salvador, yombe, vili)
+# et le tshiluba.
+CODES_A_VERIFIER = ["kng", "ktu", "kon", "kwy", "yom", "vif", "lua"]
+CORPUS_OMNILINGUAL = "facebook/omnilingual-asr-corpus"
 # Autres versions de MMS : seul leur vocabulaire est téléchargé (quelques Mo), pour savoir
 # si elles couvrent le kikongo ou le tshiluba sans charger 4 Go de poids.
 AUTRES_MODELES = ["facebook/mms-1b-l1107", "facebook/mms-1b-fl102"]
@@ -49,6 +52,41 @@ def langues_d_un_modele(modele: str) -> set[str] | None:
     except Exception as erreur:  # modèle absent ou format différent : on le dit
         print(f"{modele} : vocabulaire illisible ({type(erreur).__name__})", flush=True)
         return None
+
+
+def couverture(moteur) -> list[str]:
+    """Lignes du rapport : quels codes du kikongo et du tshiluba le modèle connaît."""
+    if isinstance(moteur, serveur.MoteurOmnilingual):
+        from omnilingual_asr.models.wav2vec2_llama.lang_ids import supported_langs
+
+        connus = {code.split("_")[0] for code in supported_langs}
+        return ["Langues connues du modèle : " + ", ".join(
+            f"`{c}` {'oui' if c in connus else 'non'}" for c in CODES_A_VERIFIER), ""]
+    connus = set(moteur.processeur.tokenizer.vocab)
+    autres = []
+    for modele in AUTRES_MODELES:
+        langues = langues_d_un_modele(modele)
+        autres.append(f"- `{modele}` : " + ("illisible" if langues is None else ", ".join(
+            f"`{c}` {'oui' if c in langues else 'non'}" for c in CODES_A_VERIFIER)))
+    return ["Adaptateurs présents dans le modèle : " + ", ".join(
+        f"`{c}` {'oui' if c in connus else 'non'}" for c in CODES_A_VERIFIER), "",
+        "Dans les autres versions de MMS :", *autres, ""]
+
+
+def corpus_omnilingual() -> list[str]:
+    """Fichiers du corpus d'Omnilingual ASR qui concernent le kikongo ou le tshiluba."""
+    from huggingface_hub import HfApi
+
+    try:
+        fichiers = HfApi().list_repo_files(CORPUS_OMNILINGUAL, repo_type="dataset")
+    except Exception as erreur:  # jeu absent, réservé ou réseau : on le dit
+        return [f"Corpus `{CORPUS_OMNILINGUAL}` illisible ({type(erreur).__name__}).", ""]
+    trouves = [f for f in fichiers
+               if any(f"{c}_" in f or f"={c}" in f or f"/{c}" in f for c in CODES_A_VERIFIER)]
+    lignes = [f"Corpus `{CORPUS_OMNILINGUAL}` : {len(fichiers)} fichiers, dont "
+              f"{len(trouves)} pour ces langues."]
+    lignes += [f"- `{f}`" for f in trouves[:30]]
+    return lignes + [""]
 
 
 def en_opus(wav: bytes) -> bytes:
@@ -88,27 +126,23 @@ def enregistrements(config: str, nombre: int) -> list[tuple[str, bytes, float]]:
 def main() -> int:
     analyseur = argparse.ArgumentParser()
     analyseur.add_argument("--nombre", type=int, default=40)
-    analyseur.add_argument("--modele", default="facebook/mms-1b-all")
+    analyseur.add_argument("--moteur", choices=sorted(serveur.MOTEURS), default="mms")
+    analyseur.add_argument("--modele", help="défaut : celui du moteur")
     analyseur.add_argument("--sortie", type=Path, default=Path("rapport-transcription.md"))
     args = analyseur.parse_args()
 
+    classe, modele, codes = serveur.MOTEURS[args.moteur]
+    modele = args.modele or modele
     debut = time.monotonic()
-    moteur = serveur.MoteurMMS(args.modele, serveur.codes_langues(CODES_MODELE))
+    moteur = classe(modele, serveur.codes_langues(codes))
     chargement = time.monotonic() - debut
-    connus = set(moteur.processeur.tokenizer.vocab)
     client = TestClient(serveur.creer_app(moteur, duree_max=60))
 
-    autres = []
-    for modele in AUTRES_MODELES:
-        langues = langues_d_un_modele(modele)
-        autres.append(f"- `{modele}` : " + ("illisible" if langues is None else ", ".join(
-            f"`{c}` {'oui' if c in langues else 'non'}" for c in CODES_A_VERIFIER)))
     lignes = [
-        f"# Transcription : {args.modele} sur Google FLEURS (test)", "",
+        f"# Transcription : {modele} sur Google FLEURS (test)", "",
         f"Chargement du modèle : {chargement:.0f} s. Processeur seul (runner GitHub, 4 cœurs).", "",
-        "Adaptateurs présents dans le modèle : " + ", ".join(
-            f"`{c}` {'oui' if c in connus else 'non'}" for c in CODES_A_VERIFIER), "",
-        "Dans les autres versions de MMS :", *autres, "",
+        *couverture(moteur), *corpus_omnilingual(),
+        f"Langues ouvertes par le service : {', '.join(moteur.langues())}.", "",
         "| Langue | Enregistrements | WER moyen | WER médian | Durée moy. | Calcul moy. | Temps réel |",
         "| --- | --- | --- | --- | --- | --- | --- |",
     ]

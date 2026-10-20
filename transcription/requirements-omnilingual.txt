@@ -1,0 +1,3 @@
+# Moteur « omnilingual » (Meta Omnilingual ASR, fairseq2). Installer PyTorch pour
+# processeur ou GPU avant, depuis download.pytorch.org (voir le Dockerfile).
+omnilingual-asr==0.1.0
