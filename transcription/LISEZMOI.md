@@ -72,7 +72,21 @@ Ce que ça dit, et ce que ça ne dit pas :
 - Le lingala et le kiswahili sont transcrits à peu près aussi bien que le français : environ une erreur pour six mots. Les erreurs portent surtout sur l'orthographe, les nombres et les noms propres (« parchemin » → « parchemen », « 24½ » → « 241 »). C'est peu gênant pour retrouver un sujet de la FAQ.
 - Ce sont des **phrases générales lues à voix haute, au calme**. De vraies questions spontanées, dans la rue, souvent en mélangeant lingala et français, donneront de moins bons résultats. Seule l'évaluation sur de vrais messages du recensement (plus bas) permet d'ouvrir une langue.
 - Le kiswahili de FLEURS est celui du Kenya, pas celui de l'est de la RDC.
-- **Kikongo et tshiluba ne sont couverts par aucune version de MMS** : ni `mms-1b-all`, ni `mms-1b-l1107`, ni `mms-1b-fl102` (codes `kng`, `ktu`, `kon`, `kwy`, `lua` cherchés dans leur vocabulaire, mesure du 20 octobre 2026). Ces deux langues restent en « proposition de rappel par un conseiller » tant qu'un autre modèle ouvert ne les couvre pas. Piste suivante : Omnilingual ASR de Meta (plus de 1 600 langues annoncées), dont la couverture et la qualité pour ces deux langues restent à vérifier de la même façon.
+- **Kikongo et tshiluba ne sont couverts par aucune version de MMS** : ni `mms-1b-all`, ni `mms-1b-l1107`, ni `mms-1b-fl102` (codes `kng`, `ktu`, `kon`, `kwy`, `lua` cherchés dans leur vocabulaire, mesure du 20 octobre 2026). Ces deux langues restent en « proposition de rappel par un conseiller » tant qu'un autre modèle ouvert ne les couvre pas.
+
+### Omnilingual ASR (`MOTEUR=omnilingual`)
+
+Mesure du 20 octobre 2026, `omniASR_CTC_1B`, 20 enregistrements par langue, même protocole :
+
+| Langue | Taux d'erreur de mots (moyen / médian) | Calcul par seconde d'audio |
+| --- | --- | --- |
+| Français | 7 % / 6 % | 0,45 s |
+| Lingala (RDC) | 25 % / 22 % | 0,45 s |
+| Kiswahili (Kenya) | 16 % / 17 % | 0,43 s |
+| Tshiluba | connu du modèle (`lua_Latn`), aucun enregistrement public pour le mesurer | |
+| Kikongo | **absent** (`kng`, `ktu`, `kon`, `kwy`, `yom` ; seul le vili `vif` est connu) | |
+
+Meilleur en français, moins bon en lingala que MMS. Il ouvre la voie au tshiluba, à mesurer sur de vrais messages avant ouverture. Pour le kikongo, voir la démarche dans `COMPREHENSION.md` (transcription sans code de langue, `kg:-`, à mesurer ; sinon entraînement). Installation : `docker compose build --build-arg MOTEUR=omnilingual transcription`, puis `MOTEUR=omnilingual` à l'exécution. fairseq2 exige sa variante processeur (index de Meta) et des versions précises de PyTorch, torchaudio et pyarrow : voir le `Dockerfile`.
 - Sur processeur seul, le calcul prend entre un tiers et deux tiers de la durée de l'audio selon la machine (0,35 à 0,69 s par seconde d'audio sur deux mesures du même runner partagé), un message à la fois. C'est assez pour un pilote, pas pour le pic.
 
 ## Matériel

@@ -13,15 +13,19 @@ Aucune langue n'est ouverte sur la foi de ce document : il dit quels modèles va
 
 Le détail est dans `transcription/LISEZMOI.md`. En résumé (Google FLEURS, phrases lues, format WhatsApp) :
 
-| Langue | Meta MMS (`mms-1b-all`) | Meta Omnilingual ASR |
+| Langue | Meta MMS (`mms-1b-all`) | Meta Omnilingual ASR (`omniASR_CTC_1B`) |
 | --- | --- | --- |
-| Français | 16 % d'erreur de mots | mesure en cours |
-| Lingala | 18 % | mesure en cours |
-| Kiswahili | 16 % | mesure en cours |
-| Tshiluba | **absent** | mesure en cours |
-| Kikongo | **absent** | mesure en cours |
+| Français | 16 % d'erreur de mots | 7 % |
+| Lingala | 18 % | 25 % |
+| Kiswahili | 16 % | 16 % |
+| Tshiluba | **absent** | connu (`lua_Latn`), **pas d'enregistrement public pour le mesurer** |
+| Kikongo | **absent** | **absent** (ni `kng`, `ktu`, `kon`, `kwy` ni `yom` ; seul le vili, `vif`) |
 
-La mesure d'Omnilingual ASR (modèles CTC 1B et LLM 1B, workflow `transcription.yml`) est en cours ; ce tableau sera complété avec ses résultats. Omnilingual connaît le tshiluba (`lua_Latn`), pas le kikongo.
+Mesure du 20 octobre 2026, 20 enregistrements par langue (MMS : 40), processeur seul : Omnilingual CTC calcule en 0,45 s par seconde d'audio, comme MMS. La version LLM 1B est mesurée à part (workflow `transcription.yml`).
+
+- **Omnilingual est meilleur en français** (7 % contre 16 %) et **moins bon en lingala** (25 % contre 18 %) : pas de vainqueur général. Le service peut garder MMS pour le lingala et le kiswahili et prendre Omnilingual pour le tshiluba, en deux instances.
+- **Le tshiluba devient possible**, mais rien ne permet de le mesurer aujourd'hui : ni FLEURS ni le corpus publié avec le modèle (`facebook/omnilingual-asr-corpus`, 1 473 fichiers) ne contiennent de tshiluba ou de kikongo. Il faut le recueil de l'étape 2 ci-dessous avant de l'ouvrir.
+- **Licence** : le code d'Omnilingual est sous Apache 2.0 ; le paquet joint une licence CC-BY 4.0 pour les modèles, sans la clause non commerciale de MMS. À faire confirmer par le juriste, mais c'est plus simple que MMS.
 
 ### Le kikongo : la démarche proposée
 
