@@ -10,7 +10,8 @@ Ce dépôt contient le **cœur commun** auquel se brancheront les six canaux du 
 - étape 5 : l'**USSD et les SMS** (menus, mots-clés, calendrier de passage, vérification des badges), avec la passerelle SMS Kannel ;
 - toutes les interfaces aux couleurs de la **Charte graphique du Gouvernement** (Marque État Congolais) ;
 - étape 6a : le **bot WhatsApp** (API officielle de Meta), relié à la base fermée et aux services de l'USSD ;
-- étape 6b : les **rappels de passage** par WhatsApp (abonnement, envoi 3 jours avant et la veille, STOP) et la section WhatsApp du tableau de bord.
+- étape 6b : les **rappels de passage** par WhatsApp (abonnement, envoi 3 jours avant et la veille, STOP) et la section WhatsApp du tableau de bord ;
+- étape 7 : les **kiosques OKAPI** et les **Ambassadeurs** : une application hors ligne commune, des appareils enrôlés un par un et révocables, et l'espace du tableau de bord qui les gère.
 
 Le cœur fait trois choses :
 
@@ -33,6 +34,7 @@ Les contenus sont rédigés et validés par le Ministère dans **Directus** (le 
 - [Centre d'appels (numéro vert)](#centre-dappels-numéro-vert)
 - [USSD et SMS](#ussd-et-sms)
 - [WhatsApp](#whatsapp)
+- [Kiosques et Ambassadeurs](#kiosques-et-ambassadeurs)
 - [Charte graphique du Gouvernement](#charte-graphique-du-gouvernement)
 - [Protection des données](#protection-des-données)
 - [Exploitation](#exploitation)
@@ -46,8 +48,8 @@ Les contenus sont rédigés et validés par le Ministère dans **Directus** (le 
 
 ```
   WhatsApp  Kiosques  Ambassadeurs   USSD    SMS (SMPP)           Numéro vert
-      └─────────┴──────────┘          │   ┌───▼────┐                  │
-         (étapes suivantes)  agréga-  │   │ Kannel │           ┌──────▼──────┐
+      │     └─────┬────┘              │   ┌───▼────┐                  │
+      │   appli /terrain/    agréga-  │   │ Kannel │           ┌──────▼──────┐
                               teur    │   └───┬────┘           │  Asterisk   │ SVI, file,
                               │◄──────┘◄──────┘                │ (conteneur) │ enregistrements
                               │◄───────────────────────────────┴─────────────┘
@@ -91,6 +93,7 @@ Chaque module est un dossier de `src/coeur/` qui contient `modeles.py` (tables),
 | `ussd/` | Menus USSD (`moteur.py`) rejoués à partir de la saisie cumulée |
 | `sms/` | Mots-clés et questions par SMS (`analyse.py`), envoi par Kannel (`passerelle.py`) avec plafond journalier |
 | `whatsapp/` | Bot WhatsApp : webhook signé (`routes.py`), conversation en listes et boutons (`conversation.py`), envoi par l'API Graph (`passerelle.py`) |
+| `terrain/` | Kiosques et Ambassadeurs : appareils enrôlés (jeton par appareil), paquet hors ligne, remontées sans doublon, application hors ligne (`statique/`) |
 | `simulateur/` | Page de test imitant un téléphone basique (désactivée par défaut, jamais en production) |
 | `charte/` | Charte graphique du Gouvernement : feuille de style, bloc-marque, police, armoiries, pages d'erreur, documentation de l'API |
 
@@ -415,6 +418,30 @@ Il passe par l'**API officielle de Meta**, la seule disponible : **les messages 
 
 ---
 
+## Kiosques et Ambassadeurs
+
+Les deux canaux de terrain partagent **une application hors ligne**, servie par le cœur sous `/terrain/` et installable sur une tablette ou un téléphone Android. Elle s'adapte au type d'appareil :
+
+- **Kiosque OKAPI** : choix de la langue à chaque visiteur, questions fréquentes validées (recherche, audio), date de passage, ménage non recensé, agent douteux, « ma question n'est pas dans la liste ». Retour au choix de la langue après 2 minutes sans action.
+- **Ambassadeur** : les mêmes réponses pour informer, plus la remontée des **rumeurs** et des **doutes** entendus sur le terrain.
+
+Sans réseau, l'appareil affiche la FAQ et le calendrier téléchargés à la dernière synchronisation, et met ce qu'il recueille en file d'attente. La file part dès que le réseau revient, **sans doublon possible**. Seule la vérification de badge demande du réseau : embarquer la liste des badges la livrerait aux faussaires.
+
+Chaque appareil a **son propre jeton**, obtenu avec un code d'activation à usage unique. Un appareil perdu ou volé se **révoque** depuis le tableau de bord (espace « Kiosques et Ambassadeurs », rôles `ROLES_TERRAIN`). Aucun nom de personne n'est enregistré : un Ambassadeur n'est connu que par le code de son appareil.
+
+Les remontées arrivent avec le reste : questions dans « Questions sans réponse » (motif « Recueillie sur le terrain »), signalements et rumeurs dans « Signalements », consultations dans les statistiques.
+
+Enrôlement, préparation des tablettes (mode kiosque Android), audio hors ligne et exploitation : [terrain/LISEZMOI.md](terrain/LISEZMOI.md).
+
+| Point d'entrée | Rôle |
+| --- | --- |
+| `POST /v1/terrain/activation` | Échange le code d'activation contre le jeton de l'appareil (une seule fois) |
+| `GET /v1/terrain/paquet` | FAQ publiée dans les langues de l'appareil, calendrier, territoires, textes. `If-None-Match` → 304 si rien n'a changé |
+| `POST /v1/terrain/remontees` | Consultations, questions, signalements, dates consultées : 200 par lot au plus, chacun avec un UUID |
+| `POST /v1/terrain/badge` | Vérification d'un badge (en ligne), plafonnée par appareil |
+
+---
+
 ## Charte graphique du Gouvernement
 
 Toutes les interfaces que voient les utilisateurs suivent la **Charte graphique du Gouvernement de la RDC** (« La Marque État Congolais », février 2022) : le portail citoyen, les espaces connectés (tableau de bord, console des agents, écoute qualité), le simulateur, la documentation de l'API, les pages d'erreur et Directus.
@@ -523,6 +550,9 @@ python outils/verifier_pile.py
 | `RAPPEL_APRES_SECONDES` | 180 | Attente avant de proposer un rappel |
 | `CONSERVATION_ENREGISTREMENTS_JOURS` | 90 | Durée de conservation des conversations enregistrées |
 | `CONSERVATION_RAPPELS_JOURS` | 7 | Délai au-delà duquel un numéro à rappeler est effacé |
+| `ROLES_TERRAIN` | `Administrator` | Rôles Directus qui enrôlent et révoquent les kiosques et les appareils des Ambassadeurs |
+| `TERRAIN_ACTIVATION_JOURS` | 7 | Validité d'un code d'activation d'appareil |
+| `CONSERVATION_REMONTEES_JOURS` | 60 | Durée de vie des identifiants anti-doublon des remontées de terrain |
 | `RAPPEL_RESERVATION_MINUTES` | 30 | Durée pendant laquelle un rappel pris et non clôturé reste réservé à son agent |
 | `OPERATEUR_SIP_*`, `SIP_ADRESSE_EXTERNE` | (vide) | Liaison de l'opérateur et adresse publique du serveur, aussi annoncée aux navigateurs des agents (voir [asterisk/LISEZMOI.md](asterisk/LISEZMOI.md)) |
 | `ASTERISK_WS_URL` | ws://localhost:8088/ws | Adresse WebSocket d'Asterisk vue du navigateur des agents (`wss://…` en production) |
@@ -558,6 +588,7 @@ python outils/verifier_pile.py
 - [ ] Faire valider par l'INS l'intitulé du bloc-marque (*Institut national de la statistique, Bureau central du recensement*, dans `src/coeur/charte/__init__.py`) et, le cas échéant, par le Ministère de la Communication et Médias, garant de la charte.
 - [ ] USSD et SMS : obtenir le code court (ARPTC), la liaison SMPP et un agrégateur USSD (fiche dans `sms/LISEZMOI.md`). Importer la vraie liste des badges, saisir et publier le calendrier, faire relire les textes en lingala. Mettre `SMS_SIMULATION=false` et `SIMULATEUR_MOBILE=false`.
 - [ ] WhatsApp : faire vérifier l'entreprise (INS) chez Meta, obtenir le numéro et le jeton permanent, abonner le webhook en HTTPS, soumettre le profil (fiche dans `whatsapp/LISEZMOI.md`). **Faire arbitrer le transit des messages par Meta** par le point focal protection des données. Faire approuver le modèle `rappel_passage` et prévoir son budget.
+- [ ] Kiosques et Ambassadeurs : choisir et préparer les tablettes (Android 9 ou plus, Chrome à jour, épinglage d'écran), faire envoyer par l'hébergeur de l'audio l'en-tête `Access-Control-Allow-Origin` (fiche dans `terrain/LISEZMOI.md`), traduire `src/coeur/terrain/textes/fr.json` dans les langues des zones et le faire relire.
 - [ ] Console des agents : publier le WebSocket d'Asterisk (port 8088) **en `wss://` derrière le proxy HTTPS**, et renseigner `ASTERISK_WS_URL`. Les navigateurs n'autorisent le micro que sur un site en HTTPS. Renseigner `SIP_ADRESSE_EXTERNE` avec l'adresse IP publique.
 
 ---
@@ -580,6 +611,7 @@ ruff check src tests outils migrations               # erreurs de code, imports 
 - `outils/verifier_mobile.py` : une session USSD, puis des SMS envoyés par l'opérateur simulé de Kannel (aller et retour), et le contrôle de l'absence de numéro en clair dans la base et les journaux. Il faut `SMS_SIMULATION=true`.
 - `outils/verifier_whatsapp.py` : des notifications signées comme celles de Meta, envoyées au webhook (langue, menu, FAQ, question libre, badge, rappel), et le contrôle de l'absence de numéro en clair. Il faut `WHATSAPP_PASSERELLE=simulation` et `SIMULATEUR_MOBILE=true`.
 - `outils/verifier_telephonie.py` : trois appels simulés (serveur vocal, rappel, agent) et contrôle de l'absence de numéro en clair. Il faut `TELEPHONIE_SIMULATION=true`.
+- `tests/integration/test_terrain_navigateur.py` : l'application de terrain dans Chromium, serveur réellement coupé puis relancé (file d'attente, absence de doublon, révocation). Prérequis : `pip install -e ".[e2e]"` et `python -m playwright install chromium` ; sans navigateur, le test est ignoré.
 - `outils/verifier_pile.py` : vérification sur la pile complète, Directus compris : circuit de validation et connexion au tableau de bord. Il ne journalise qu'une seule question, pour ne pas fausser les statistiques.
 
 ---
@@ -630,4 +662,5 @@ Pour chaque langue : réponses justes, **fausses** (un autre contenu que le bon 
 - **Textes USSD et SMS** : en français, avec une proposition en lingala à relire. Les autres langues affichent les menus en français, mais servent les réponses validées dans leur langue.
 - **Charte dans Directus** : la page de connexion de Directus garde sa propre police, car Directus ne permet pas de la changer sur ses pages publiques. Le reste de l'application est en Cooper Hewitt.
 - **WhatsApp, premier message** : il reçoit l'accueil et le choix de la langue. Une question posée dans ce premier message est gardée, masquée, au plus `WHATSAPP_ATTENTE_MINUTES`, puis traitée dès que la langue est choisie.
+- **Application de terrain** : interface en français seulement (`src/coeur/terrain/textes/`), les réponses étant servies dans la langue choisie. Testée dans Chromium ; à valider sur les tablettes retenues, en particulier la lecture de l'audio hors ligne. Les vidéos ne sont pas gardées hors ligne.
 - **Exemples de contenus** : ils sont en français seulement et marqués `[EXEMPLE non validé]`. Aucun texte en langue nationale n'est fourni : il doit venir de traducteurs et être validé par le BCR.
