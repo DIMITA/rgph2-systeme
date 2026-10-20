@@ -106,7 +106,8 @@ def test_textes_memes_cles_et_memes_marqueurs_que_le_francais(langue):
 LONGUES = {"numero": "ABCDEFGHIJ0123456789", "territoire": "Ville de Kinshasa",
            "lieu": "Mbanza-Ngungu, " + "q" * 60, "dates": "du 10/05/2027 au 20/06/2027",
            "debut": "10/05/2027", "fin": "20/06/2027", "id": "1234567",
-           "mot": "NONVISITE", "codes": "fr, ln, sw, kg, lua", "langue": "Kiswahili"}
+           "mot": "NONVISITE", "codes": "fr, ln, sw, kg, lua", "langue": "Kiswahili",
+           "maximum": "3"}
 
 
 @pytest.mark.parametrize("langue", LANGUES)

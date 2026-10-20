@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from sqlalchemy import JSON, BigInteger, CheckConstraint, DateTime, String, func
+from sqlalchemy import (
+    JSON, BigInteger, CheckConstraint, DateTime, ForeignKey, String, Text, UniqueConstraint, func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from coeur.base import SCHEMA_COEUR, Base
@@ -51,3 +53,33 @@ class MessageWhatsapp(Base):
     usager_empreinte: Mapped[str] = mapped_column(String(64), index=True)
     categorie: Mapped[str] = mapped_column(String(8), default="service", server_default="service")
     statut: Mapped[str] = mapped_column(String(8))
+
+
+class Abonnement(Base):
+    """Rappels de passage demandés par un usager pour un territoire (consentement explicite).
+
+    Seule donnée WhatsApp où le numéro est conservé, chiffré (comme les demandes de
+    rappel du centre d'appels), car il faut écrire à l'usager plus tard. L'abonnement
+    et son numéro sont effacés au « STOP », ou WHATSAPP_ABONNEMENT_JOURS_APRES jours
+    après la fin du dernier passage publié dans le territoire.
+    """
+
+    __tablename__ = "abonnements_whatsapp"
+    __table_args__ = (
+        UniqueConstraint("usager_empreinte", "territoire_code",
+                         name="uq_abonnements_whatsapp_usager_territoire"),
+        {"schema": SCHEMA_COEUR},
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    usager_empreinte: Mapped[str] = mapped_column(String(64), index=True)
+    numero_chiffre: Mapped[str] = mapped_column(Text)
+    territoire_code: Mapped[str] = mapped_column(
+        ForeignKey(f"{SCHEMA_COEUR}.territoires.code"), index=True
+    )
+    langue: Mapped[str] = mapped_column(String(8))
+    cree_a: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    # Rappels déjà envoyés, ex. ["12:j3", "12:veille"] (identifiant de la période, étape).
+    envoyes: Mapped[list] = mapped_column(JSON, default=list)

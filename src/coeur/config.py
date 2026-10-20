@@ -107,6 +107,28 @@ class Parametres(BaseSettings):
     whatsapp_jeton_verification: str = ""
     # Une conversation sans réponse depuis ce délai repart du menu.
     whatsapp_attente_minutes: int = 30
+    # Rappels de passage : modèle de message approuvé par Meta (voir whatsapp/LISEZMOI.md).
+    whatsapp_modele_rappel: str = "rappel_passage"
+    # Langue de l'usager → langue du modèle chez Meta (Meta ne propose pas le lingala, le
+    # kikongo ni le tshiluba : ces usagers reçoivent la version française).
+    whatsapp_modele_langues: str = "fr:fr,sw:sw"
+    # Jours avant le début du passage où le rappel est envoyé (3 jours avant, la veille).
+    whatsapp_rappels_jours: str = "3,1"
+    # Plage horaire d'envoi (heure locale) : on n'écrit pas aux citoyens la nuit.
+    whatsapp_heure_debut: int = 8
+    whatsapp_heure_fin: int = 18
+    whatsapp_abonnements_max: int = 3
+    # Abonnement (et numéro) effacé ce nombre de jours après la fin du dernier passage.
+    whatsapp_abonnement_jours_apres: int = 7
+
+    def langue_modele(self, langue: str) -> str:
+        correspondances = dict(p.strip().split(":", 1)
+                               for p in self.whatsapp_modele_langues.split(",") if ":" in p)
+        return correspondances.get(langue, correspondances.get("fr", "fr"))
+
+    def jours_rappels(self) -> dict[int, str]:
+        """{3: "j3", 1: "j1"} : jours avant le passage → étiquette du rappel."""
+        return {int(j): f"j{int(j)}" for j in self.whatsapp_rappels_jours.split(",") if j.strip()}
 
     def roles_par_espace(self) -> dict[str, set[str]]:
         """Espace (pilotage, agents, qualite) → rôles Directus admis."""

@@ -17,6 +17,7 @@ from coeur.base import session_db
 from coeur.config import Parametres, parametres
 from coeur.centre_appels.service import statistiques_appels
 from coeur.mobile.statistiques import statistiques_mobile
+from coeur.whatsapp.statistiques import statistiques_whatsapp
 from coeur.connaissances.service import langues_actives
 from coeur.interactions import service as interactions
 from coeur.limiteur import LimiteurDebit
@@ -190,6 +191,8 @@ def synthese(
                                    reglages.seuil_secret_statistique),
         mobile=statistiques_mobile(session, debut, fin, ZoneInfo(reglages.fuseau_horaire),
                                    reglages.seuil_secret_statistique),
+        whatsapp=statistiques_whatsapp(session, debut, fin, ZoneInfo(reglages.fuseau_horaire),
+                                       reglages.seuil_secret_statistique),
     )
 
 

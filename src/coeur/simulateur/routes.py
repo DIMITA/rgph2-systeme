@@ -109,3 +109,23 @@ def messages_whatsapp(numero: str, _reglages: Parametres = Depends(actif)) -> li
     if not isinstance(p, PasserelleSimulation):
         raise HTTPException(404, "Passerelle WhatsApp réelle : rien à montrer")
     return [charge_utile(numero, m) for m in p.derniers(numero)]
+
+
+@routeur.post("/whatsapp/rappels")
+def rappels_whatsapp(
+    request: Request,
+    numero: str = Form(default=NUMERO_EXEMPLE, max_length=20),
+    session: Session = Depends(session_db),
+    reglages: Parametres = Depends(actif),
+):
+    """Lance tout de suite l'envoi des rappels de passage dus (sans attendre la tâche horaire)."""
+    from datetime import datetime, time
+    from zoneinfo import ZoneInfo
+
+    from coeur.whatsapp.abonnements import envoyer_rappels
+
+    # Heure forcée dans la plage autorisée, pour pouvoir tester à toute heure.
+    midi = datetime.combine(datetime.now(ZoneInfo(reglages.fuseau_horaire)).date(), time(12),
+                            ZoneInfo(reglages.fuseau_horaire))
+    envoyes = envoyer_rappels(session, reglages, midi)
+    return _page(request, reglages, numero=numero, wa_rappels=envoyes)

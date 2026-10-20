@@ -48,17 +48,43 @@ Meta télécharge lui-même les fichiers : `audio_url` et `video_url` doivent ê
 
 ## Coûts
 
-Les réponses envoyées dans les **24 heures** qui suivent un message du citoyen sont **gratuites**. Les messages envoyés hors de cette fenêtre (les rappels de passage, étape 6b) passent par des **modèles approuvés par Meta** et sont facturés selon la grille tarifaire de Meta pour la RDC. Le journal `coeur.whatsapp_messages` compte les uns et les autres, sans texte ni numéro.
+Les réponses envoyées dans les **24 heures** qui suivent un message du citoyen sont **gratuites**. Les messages envoyés hors de cette fenêtre, c'est-à-dire les rappels de passage, passent par des **modèles approuvés par Meta** et sont facturés selon la grille tarifaire de Meta pour la RDC. Le journal `coeur.whatsapp_messages` compte les uns et les autres, sans texte ni numéro.
+
+## Rappels de passage
+
+Après avoir consulté la date de passage d'un territoire, le citoyen peut toucher **« Prévenez-moi »**. C'est un consentement explicite. Il reçoit alors un message **3 jours avant** le passage, puis **la veille**. Il peut suivre trois territoires au plus.
+
+- **Si les dates ne sont pas encore publiées**, l'abonnement est quand même accepté. Les rappels partiront dès que le BCR aura publié les dates dans Directus.
+- **Les envois** se font entre 8 h et 18 h (heure de Kinshasa), par le service `taches`, toutes les heures. Un même rappel n'est jamais envoyé deux fois.
+- **`STOP`**, écrit ou touché sous un rappel, efface tous les abonnements de l'usager et son numéro.
+- **Le numéro est conservé chiffré** (Fernet), comme pour les demandes de rappel téléphonique, car il faut pouvoir écrire plus tard. Il est effacé au `STOP`, ou 7 jours après la fin du dernier passage publié dans le territoire.
+
+### Modèle à soumettre à Meta
+
+Hors de la fenêtre de 24 h, WhatsApp n'autorise que des **modèles approuvés**. Il faut soumettre celui-ci dans le gestionnaire WhatsApp :
+
+| Champ | Valeur |
+| --- | --- |
+| Nom | `rappel_passage` (réglage `WHATSAPP_MODELE_RAPPEL`) |
+| Catégorie | **Utilité** (*Utility*) |
+| Langues | Français (`fr`). Kiswahili (`sw`) une fois traduit. Meta ne propose pas le lingala, le kikongo ni le tshiluba : ces usagers reçoivent la version française (réglage `WHATSAPP_MODELE_LANGUES`) |
+| Corps (fr) | `Recensement RGPH-2 : les agents recenseurs passeront à {{1}} du {{2}} au {{3}}. Ils portent un badge officiel avec photo : vous pouvez le vérifier ici en écrivant AGENT suivi de son numéro.` |
+| Exemple des variables | `Goma`, `17/05/2027`, `30/05/2027` |
+| Bouton | Réponse rapide : `Arrêter les rappels` |
+
+Chaque rappel est **facturé** au tarif « Utilité » de Meta pour la RDC. Le tableau de bord compte les rappels envoyés.
 
 ## Données personnelles
 
 - **Les messages transitent par Meta**, donc hors de RDC. C'est un écart avec l'exigence de localisation de l'architecture, à faire **arbitrer par le point focal protection des données**. Le cœur limite ce qu'il garde lui-même :
   - **l'empreinte du numéro**, jamais le numéro ;
   - **ni le texte des messages**, ni dans le journal ni ailleurs. Seules les questions posées au moteur sont journalisées, masquées, comme sur les autres canaux ;
-  - **une attente de 30 minutes au plus** (`coeur.conversations_whatsapp`) : on y note seulement « numéro de badge attendu » ou le territoire déjà choisi.
+  - **une attente de 30 minutes au plus** (`coeur.conversations_whatsapp`) : on y note seulement « numéro de badge attendu » ou le territoire déjà choisi ;
+  - **le numéro chiffré des abonnés aux rappels** (`coeur.abonnements_whatsapp`), effacé au `STOP` ou après le passage.
 - **Signature** : toute notification sans signature valide de Meta est refusée (HTTP 401).
 
 ## Tester sans compte Meta
 
 - **Simulateur** : avec `SIMULATEUR_MOBILE=true`, la page http://localhost:8000/simulateur a une section WhatsApp, avec les listes et les boutons cliquables.
-- **De bout en bout** : `python outils/verifier_whatsapp.py`. Il envoie au webhook des notifications **signées comme celles de Meta** et vérifie les réponses au format exact de l'API Graph.
+- **Rappels de passage** : le bouton « Envoyer maintenant les rappels de passage dus » du simulateur évite d'attendre la tâche horaire.
+- **De bout en bout** : `python outils/verifier_whatsapp.py`, rappels de passage compris. Il envoie au webhook des notifications **signées comme celles de Meta** et vérifie les réponses au format exact de l'API Graph.

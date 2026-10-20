@@ -13,9 +13,9 @@ from coeur.confidentialite.service import normaliser_telephone
 from coeur.connaissances.depot import Corpus
 from coeur.mobile import service as mobile
 from coeur.whatsapp.conversation import Contexte, Entree, traiter
+from coeur.whatsapp.envoi import envoyer
 from coeur.whatsapp.messages import Message
 from coeur.whatsapp.modeles import MessageWhatsapp
-from coeur.whatsapp.passerelle import passerelle
 
 # Meta renvoie une notification restée sans réponse : un même message n'est traité qu'une fois.
 DUREE_MEMOIRE = 3600
@@ -63,18 +63,6 @@ def lire_entree(message: dict) -> Entree:
     if type_ == "button":  # bouton d'un modèle de message (rappels de passage)
         return Entree("choix", message.get("button", {}).get("payload", "menu"))
     return Entree("autre")
-
-
-def envoyer(session: Session, numero: str, empreinte: str, messages: list[Message],
-            categorie: str = "service") -> bool:
-    tous = True
-    for message in messages:
-        ok = passerelle().envoyer(numero, message)
-        tous = tous and ok
-        session.add(MessageWhatsapp(sens="sortant", usager_empreinte=empreinte,
-                                    categorie=categorie, statut="envoye" if ok else "echec"))
-    session.commit()
-    return tous
 
 
 def recevoir_message(session: Session, corpus: Corpus, reglages: Parametres,

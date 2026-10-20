@@ -60,5 +60,11 @@
   "wa_attente_expiree": "Votre précédente demande a expiré. Reprenez depuis le menu.",
   "wa_saisir_localite": "Écrivez votre quartier ou votre village, ou touchez « Passer ».",
   "wa_escalade": "Pas de réponse validée à votre question. Appelez gratuitement le {numero}, ou demandez à être rappelé.",
-  "wa_escalade_sans_numero": "Pas de réponse validée à votre question. Un conseiller peut vous rappeler gratuitement."
+  "wa_escalade_sans_numero": "Pas de réponse validée à votre question. Un conseiller peut vous rappeler gratuitement.",
+  "wa_prevenez_moi": "Prévenez-moi",
+  "wa_abonnement_ok": "C'est noté : vous serez prévenu avant le passage des agents à {territoire}. Envoyez STOP pour arrêter les rappels.",
+  "wa_abonnement_deja": "Vous êtes déjà prévenu pour {territoire}. Envoyez STOP pour arrêter les rappels.",
+  "wa_abonnements_max": "Vous suivez déjà {maximum} territoires. Envoyez STOP pour tout arrêter, puis recommencez.",
+  "wa_stop_ok": "Vos rappels sont arrêtés et votre numéro est effacé de la liste.",
+  "wa_stop_aucun": "Vous n'avez aucun rappel en cours."
 }

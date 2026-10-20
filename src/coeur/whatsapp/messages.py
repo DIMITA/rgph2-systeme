@@ -56,7 +56,21 @@ class Media:
     legende: str | None = None
 
 
-Message = Texte | Liste | Boutons | Media
+@dataclass
+class Modele:
+    """Message pré-approuvé par Meta, seul permis hors de la fenêtre de 24 h (facturé).
+
+    `parametres` remplissent {{1}}, {{2}}… du corps ; `bouton_stop` ajoute la charge
+    utile « stop » au bouton de réponse rapide du modèle (arrêt des rappels).
+    """
+
+    nom: str
+    langue: str
+    parametres: list[str]
+    bouton_stop: bool = True
+
+
+Message = Texte | Liste | Boutons | Media | Modele
 
 
 def charge_utile(numero: str, message: Message) -> dict:
@@ -65,6 +79,14 @@ def charge_utile(numero: str, message: Message) -> dict:
     if isinstance(message, Texte):
         return {**base, "type": "text",
                 "text": {"body": message.corps[:MAX_TEXTE], "preview_url": False}}
+    if isinstance(message, Modele):
+        composants = [{"type": "body", "parameters": [{"type": "text", "text": p}
+                                                       for p in message.parametres]}]
+        if message.bouton_stop:
+            composants.append({"type": "button", "sub_type": "quick_reply", "index": "0",
+                               "parameters": [{"type": "payload", "payload": "stop"}]})
+        return {**base, "type": "template", "template": {
+            "name": message.nom, "language": {"code": message.langue}, "components": composants}}
     if isinstance(message, Media):
         media = {"link": message.lien}
         if message.legende and message.type == "video":

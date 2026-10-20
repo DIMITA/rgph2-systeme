@@ -60,5 +60,11 @@
   "wa_attente_expiree": "Bosengi na yo ya liboso eleki ntango. Banda lisusu na menu.",
   "wa_saisir_localite": "Koma kartie to mboka na yo, to fina « Leka ».",
   "wa_escalade": "Tozali na eyano endimami te mpo na motuna oyo. Benga ofele na {numero}, to senga ete babenga yo.",
-  "wa_escalade_sans_numero": "Tozali na eyano endimami te mpo na motuna oyo. Mosalisi akoki kobenga yo ofele."
+  "wa_escalade_sans_numero": "Tozali na eyano endimami te mpo na motuna oyo. Mosalisi akoki kobenga yo ofele.",
+  "wa_prevenez_moi": "Yebisa ngai",
+  "wa_abonnement_ok": "Ekomami : tokoyebisa yo liboso bato ya botangi bakoya na {territoire}. Tinda STOP mpo na kotika.",
+  "wa_abonnement_deja": "Ekomami kala mpo na {territoire}. Tinda STOP mpo na kotika.",
+  "wa_abonnements_max": "Ozali kolanda teritware {maximum} kala. Tinda STOP mpo na kotika nyonso, sima banda lisusu.",
+  "wa_stop_ok": "Biyebisi na yo esili mpe nimero na yo elongolami na liste.",
+  "wa_stop_aucun": "Ozali na biyebisi moko te."
 }

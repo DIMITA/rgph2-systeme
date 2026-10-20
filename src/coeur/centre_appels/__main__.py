@@ -1,4 +1,7 @@
-"""Tâches de conservation du centre d'appels.
+"""Tâches de conservation du centre d'appels seulement.
+
+Le service « taches » utilise désormais `python -m coeur.taches`, qui les regroupe
+avec celles des autres canaux.
 
     python -m coeur.centre_appels taches             # une fois
     python -m coeur.centre_appels taches --boucle 3600  # toutes les heures (service « taches »)

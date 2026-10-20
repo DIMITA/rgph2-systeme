@@ -47,6 +47,16 @@
   <div class="chiffre"><span class="valeur">{{ nb(mobile.sms_plafonnes, seuil) }}</span><span>réponses non envoyées (plafond journalier)</span></div>
 </div>
 
+<h2 class="section">WhatsApp</h2>
+<div class="chiffres">
+  <div class="chiffre"><span class="valeur">{{ nb(whatsapp.recus, seuil) }}</span><span>messages reçus</span></div>
+  <div class="chiffre"><span class="valeur">{{ nb(whatsapp.usagers, seuil) }}</span><span>usagers distincts</span></div>
+  <div class="chiffre"><span class="valeur">{{ nb(whatsapp.reponses, seuil) }}</span><span>réponses envoyées (gratuites)</span></div>
+  <div class="chiffre"><span class="valeur">{{ nb(whatsapp.rappels, seuil) }}</span><span>rappels de passage envoyés (facturés)</span></div>
+  <div class="chiffre"><span class="valeur">{{ nb(whatsapp.abonnes, seuil) }}</span><span>abonnés aux rappels (aujourd'hui)</span></div>
+  <div class="chiffre"><span class="valeur">{{ nb(whatsapp.echecs, seuil) }}</span><span>envois échoués</span></div>
+</div>
+
 <div class="grille">
   {{ repartition("Questions par canal", repartitions.canal, "nb_interactions", noms, seuil, maximum, escalades=true) }}
   {{ repartition("Questions par langue", repartitions.langue, "nb_interactions", noms, seuil, maximum, escalades=true) }}

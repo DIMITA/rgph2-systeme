@@ -9,7 +9,8 @@ Ce dépôt contient le **cœur commun** auquel se brancheront les six canaux du 
 - étape 4b : la **console des agents** dans le navigateur et l'**écoute qualité** ;
 - étape 5 : l'**USSD et les SMS** (menus, mots-clés, calendrier de passage, vérification des badges), avec la passerelle SMS Kannel ;
 - toutes les interfaces aux couleurs de la **Charte graphique du Gouvernement** (Marque État Congolais) ;
-- étape 6a : le **bot WhatsApp** (API officielle de Meta), relié à la base fermée et aux services de l'USSD.
+- étape 6a : le **bot WhatsApp** (API officielle de Meta), relié à la base fermée et aux services de l'USSD ;
+- étape 6b : les **rappels de passage** par WhatsApp (abonnement, envoi 3 jours avant et la veille, STOP) et la section WhatsApp du tableau de bord.
 
 Le cœur fait trois choses :
 
@@ -147,7 +148,7 @@ Au démarrage, `docker compose up` lance dans l'ordre :
 - `migrations` crée ou met à jour les tables (Alembic), puis s'arrête ;
 - `api` et `directus` démarrent ;
 - `directus-config` règle l'affichage des collections et crée les rôles, puis s'arrête. Ce service peut être relancé sans risque ;
-- `asterisk` (téléphonie), `sms` (passerelle SMS Kannel) et `taches` (purges du centre d'appels, toutes les heures) démarrent.
+- `asterisk` (téléphonie), `sms` (passerelle SMS Kannel) et `taches` démarrent. `taches` s'exécute toutes les heures (`python -m coeur.taches`) : purges du centre d'appels, rappels de passage WhatsApp, abonnements expirés.
 
 ---
 
@@ -408,6 +409,8 @@ Il passe par l'**API officielle de Meta**, la seule disponible : **les messages 
 - Mise en service (compte, numéro, webhook), profil aux couleurs de la charte, médias et coûts : [whatsapp/LISEZMOI.md](whatsapp/LISEZMOI.md).
 - **Vidéo** : nouveau champ `video_url` dans les traductions (Directus), validé comme le reste. Il faut une adresse HTTPS publique, MP4 de 16 Mo au plus.
 - **Sécurité** : toute notification sans signature valide de Meta (`X-Hub-Signature-256`) est refusée.
+- **Rappels de passage** : « Prévenez-moi » après une date de passage. Le citoyen reçoit un message 3 jours avant le passage, puis la veille, entre 8 h et 18 h. `STOP` efface tout. Le numéro des abonnés est conservé **chiffré** et effacé 7 jours après le passage. Les rappels utilisent un **modèle approuvé par Meta** et sont **facturés** ; le texte à soumettre est dans le LISEZMOI.
+- **Tableau de bord** : la section WhatsApp donne les messages reçus, les usagers distincts, les réponses (gratuites), les rappels envoyés (facturés), les abonnés et les échecs d'envoi.
 - **Tester sans compte Meta** : la section WhatsApp du simulateur (`/simulateur`), et `python outils/verifier_whatsapp.py`.
 
 ---
@@ -459,7 +462,7 @@ Ces règles sont **appliquées par le code** et **vérifiées par des tests**, p
 | Téléphonie sans trace en clair | Pas de CDR, de CEL ni de journal de file. Journaux d'Asterisk sans numéros | `test_logs_et_cdr_sans_numero_en_clair`, `outils/verifier_telephonie.py` |
 | Badges des agents | Stockés sous forme d'empreinte. Vérifications plafonnées par numéro | `test_badges_stockes_sous_forme_d_empreinte`, `test_verifications_de_badge_plafonnees` |
 | USSD et SMS sans trace en clair | Le numéro ne sert qu'à répondre et n'est pas conservé (empreinte seulement). Le journal des SMS ne garde ni texte ni numéro. Le journal d'accès de l'API retire les paramètres d'adresse (numéro, texte, clé) et Kannel n'écrit que les avertissements | `test_aucun_numero_en_clair`, `test_journal_d_acces_sans_parametres`, `outils/verifier_mobile.py` |
-| WhatsApp | Notifications signées seulement. Empreinte du numéro, aucun texte de message conservé, attente oubliée après 30 min | `test_notification_non_signee_ou_mal_signee_refusee`, `test_journal_sans_texte_ni_numero`, `outils/verifier_whatsapp.py` |
+| WhatsApp | Notifications signées seulement. Empreinte du numéro, aucun texte de message conservé, attente oubliée après 30 min. Numéro des abonnés aux rappels **chiffré**, effacé au STOP ou 7 jours après le passage | `test_notification_non_signee_ou_mal_signee_refusee`, `test_journal_sans_texte_ni_numero`, `test_stop_efface_abonnements_et_numero`, `test_expiration_apres_le_passage`, `outils/verifier_whatsapp.py` |
 | Contenus validés seulement | L'API ne lit que les contenus `publie`. Seul le rôle Validateur BCR peut publier | `test_questions.py`, `outils/verifier_pile.py` |
 
 **La clé `PEPPER_TELEPHONE` est un secret critique.** Il faut la conserver dans un coffre-fort et **ne jamais la changer en cours d'opération** : les usagers ne seraient plus reconnus. Sa fuite permettrait de retrouver un numéro à partir de son empreinte, par essais successifs.
@@ -531,6 +534,11 @@ python outils/verifier_pile.py
 | `BADGES_VERIFICATIONS_PAR_HEURE` | 10 | Vérifications de badge par numéro et par heure |
 | `OPERATEUR_SMPP_*` | (vide) | Liaison SMPP de l'opérateur (voir [sms/LISEZMOI.md](sms/LISEZMOI.md)) |
 | `WHATSAPP_PASSERELLE` | simulation | `meta` une fois le compte ouvert |
+| `WHATSAPP_MODELE_RAPPEL`, `WHATSAPP_MODELE_LANGUES` | rappel_passage, fr:fr,sw:sw | Modèle des rappels de passage et ses langues chez Meta (les autres langues reçoivent le français) |
+| `WHATSAPP_RAPPELS_JOURS` | 3,1 | Jours avant le passage où le rappel part |
+| `WHATSAPP_HEURE_DEBUT`, `WHATSAPP_HEURE_FIN` | 8, 18 | Plage horaire des envois (heure locale) |
+| `WHATSAPP_ABONNEMENTS_MAX` | 3 | Territoires suivis par usager |
+| `WHATSAPP_ABONNEMENT_JOURS_APRES` | 7 | Effacement de l'abonnement (et du numéro) après la fin du dernier passage |
 | `WHATSAPP_NUMERO_ID`, `WHATSAPP_JETON`, `WHATSAPP_SECRET_APP`, `WHATSAPP_JETON_VERIFICATION` | (vide) | Compte WhatsApp Business de l'INS (voir [whatsapp/LISEZMOI.md](whatsapp/LISEZMOI.md)). Sans `WHATSAPP_SECRET_APP`, toute notification est refusée |
 | `SMS_SIMULATION`, `SIMULATEUR_MOBILE` | false, false | Opérateur SMS simulé et page `/simulateur`. **Jamais en production** |
 
@@ -547,7 +555,7 @@ python outils/verifier_pile.py
 - [ ] Faire valider par le point focal protection des données l'enregistrement des appels (annonce, durée de 90 jours, accès).
 - [ ] Faire valider par l'INS l'intitulé du bloc-marque (*Institut national de la statistique, Bureau central du recensement*, dans `src/coeur/charte/__init__.py`) et, le cas échéant, par le Ministère de la Communication et Médias, garant de la charte.
 - [ ] USSD et SMS : obtenir le code court (ARPTC), la liaison SMPP et un agrégateur USSD (fiche dans `sms/LISEZMOI.md`). Importer la vraie liste des badges, saisir et publier le calendrier, faire relire les textes en lingala. Mettre `SMS_SIMULATION=false` et `SIMULATEUR_MOBILE=false`.
-- [ ] WhatsApp : faire vérifier l'entreprise (INS) chez Meta, obtenir le numéro et le jeton permanent, abonner le webhook en HTTPS, soumettre le profil (fiche dans `whatsapp/LISEZMOI.md`). **Faire arbitrer le transit des messages par Meta** par le point focal protection des données.
+- [ ] WhatsApp : faire vérifier l'entreprise (INS) chez Meta, obtenir le numéro et le jeton permanent, abonner le webhook en HTTPS, soumettre le profil (fiche dans `whatsapp/LISEZMOI.md`). **Faire arbitrer le transit des messages par Meta** par le point focal protection des données. Faire approuver le modèle `rappel_passage` et prévoir son budget.
 - [ ] Console des agents : publier le WebSocket d'Asterisk (port 8088) **en `wss://` derrière le proxy HTTPS**, et renseigner `ASTERISK_WS_URL`. Les navigateurs n'autorisent le micro que sur un site en HTTPS. Renseigner `SIP_ADRESSE_EXTERNE` avec l'adresse IP publique.
 
 ---

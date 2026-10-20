@@ -97,12 +97,12 @@ services:
       migrations:
         condition: service_completed_successfully
 
-  # Tâches de conservation, toutes les heures : expiration des numéros de rappel,
-  # suppression des enregistrements trop anciens.
+  # Tâches périodiques, toutes les heures (voir src/coeur/taches.py) : conservation
+  # (numéros de rappel, enregistrements), rappels de passage WhatsApp, abonnements expirés.
   taches:
     <<: *image-coeur
     restart: unless-stopped
-    command: ["python", "-m", "coeur.centre_appels", "taches", "--boucle", "3600"]
+    command: ["python", "-m", "coeur.taches", "--boucle", "3600"]
     environment:
       <<: *env-coeur
       DATABASE_URL: *url-api

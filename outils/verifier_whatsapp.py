@@ -8,7 +8,8 @@ les réponses du bot (au format exact de l'API Graph) :
   1. notification non signée refusée ; abonnement du webhook vérifié ;
   2. premier contact (choix de la langue), menu, question de la FAQ, question libre ;
   3. vérification d'un badge, demande de rappel ;
-  4. aucun numéro en clair dans la base ni dans les journaux.
+  4. abonnement aux rappels de passage, envoi du rappel (modèle), STOP ;
+  5. aucun numéro en clair dans la base ni dans les journaux.
 
 Usage : python outils/verifier_whatsapp.py   (depuis la racine du dépôt)
 """
@@ -134,9 +135,35 @@ def main() -> None:
     verifier(sql("SELECT count(*) FROM coeur.rappels WHERE origine = 'whatsapp' "
                  "AND numero_chiffre IS NOT NULL") != "0", "rappel visible pour les agents (origine WhatsApp)")
 
-    print("4. Aucun numéro en clair")
-    for table in ("whatsapp_messages", "conversations_whatsapp", "interactions", "consultations",
-                  "preferences_langue", "rappels"):
+    print("4. Rappels de passage")
+    sql("INSERT INTO calendrier_passages (territoire_code, date_debut, date_fin, statut) "
+        "SELECT 'TAN-KAL', current_date + 3, current_date + 20, 'publie' WHERE NOT EXISTS "
+        "(SELECT 1 FROM calendrier_passages WHERE territoire_code = 'TAN-KAL')")
+    debut = sql("SELECT to_char(date_debut, 'DD/MM/YYYY') FROM calendrier_passages "
+                "WHERE territoire_code = 'TAN-KAL' ORDER BY id LIMIT 1")
+    reponse = c.toucher("terr:passage:TAN-KAL")
+    verifier(any(b["reply"]["id"] == "abonner:TAN-KAL" for b in
+                 reponse[0]["interactive"]["action"]["buttons"]), "« Prévenez-moi » proposé")
+    reponse = c.toucher("abonner:TAN-KAL")
+    verifier(corps(reponse[0]).startswith("C'est noté"), "abonnement enregistré")
+    verifier(sql("SELECT count(*) FROM coeur.abonnements_whatsapp WHERE territoire_code = 'TAN-KAL' "
+                 "AND numero_chiffre IS NOT NULL") != "0", "numéro conservé chiffré")
+    avant = len(c.recus())
+    httpx.post(f"{API}/simulateur/whatsapp/rappels").raise_for_status()
+    modeles = [m for m in c.recus()[avant:] if m["type"] == "template"]
+    verifier(len(modeles) == 1 and modeles[0]["template"]["name"] == "rappel_passage"
+             and [p["text"] for p in modeles[0]["template"]["components"][0]["parameters"]][:2]
+             == ["Kalemie", debut], f"rappel envoyé par modèle (Kalemie, {debut})")
+    reponse = c.ecrire("STOP")
+    verifier(corps(reponse[0]).startswith("Vos rappels sont arrêtés"), "STOP : rappels arrêtés")
+    verifier(sql("SELECT count(*) FROM coeur.abonnements_whatsapp WHERE territoire_code = 'TAN-KAL'")
+             == "0", "STOP : abonnement et numéro effacés")
+    sortie = compose("exec", "-T", "taches", "python", "-m", "coeur.taches")
+    verifier("rappels de passage envoyés" in sortie, "le service « taches » exécute les rappels")
+
+    print("5. Aucun numéro en clair")
+    for table in ("whatsapp_messages", "conversations_whatsapp", "abonnements_whatsapp",
+                  "interactions", "consultations", "preferences_langue", "rappels"):
         contenu = sql(f"SELECT coalesce(string_agg(t::text, ' '), '') FROM coeur.{table} t")
         verifier(suffixe not in contenu, f"table coeur.{table}")
     verifier(suffixe not in compose("logs", "api"), "journaux de l'API")

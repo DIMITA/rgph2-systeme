@@ -54,11 +54,15 @@
   {% for identifiant, titre in m.boutons %}
   <form method="post" action="/simulateur/whatsapp"><input type="hidden" name="numero" value="{{ numero }}"><input type="hidden" name="choix" value="{{ identifiant }}"><button type="submit" class="secondaire choix-wa">{{ titre }}</button></form>
   {% endfor %}
+  {% elif m.nom is defined %}
+  <p>Modèle « {{ m.nom }} » ({{ m.langue }}) : {{ m.parametres | join(" · ") }}</p>
   {% elif m.lien is defined %}
   <p>{{ "Audio" if m.type == "audio" else "Vidéo" }} : <a href="{{ m.lien }}">{{ m.lien }}</a></p>
   {% endif %}
 </div>
 {% endfor %}
+{% if wa_rappels is defined %}<p class="note" id="rappels-wa">Rappels de passage envoyés : {{ wa_rappels }}</p>{% endif %}
+<form method="post" action="/simulateur/whatsapp/rappels"><button type="submit" class="secondaire">Envoyer maintenant les rappels de passage dus</button></form>
 <form method="post" action="/simulateur/whatsapp" class="telephone">
   <label for="numero-wa">Numéro WhatsApp</label>
   <input id="numero-wa" name="numero" value="{{ numero }}" inputmode="tel">

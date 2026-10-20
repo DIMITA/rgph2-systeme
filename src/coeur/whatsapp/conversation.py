@@ -21,9 +21,11 @@ from coeur.mobile.service import Usager
 from coeur.sms.analyse import normaliser
 from coeur.sms.service import executer_commande
 from coeur.territoires.modeles import Territoire
+from coeur.whatsapp import abonnements
 from coeur.whatsapp.messages import MAX_LIGNES, Boutons, Ligne, Liste, Media, Message, Texte
 from coeur.whatsapp.modeles import Conversation
 
+MOTS_STOP = {"STOP", "ARRET", "ARRETER", "DESABONNER"}
 SALUTATIONS = {"BONJOUR", "BONSOIR", "SALUT", "MENU", "AIDE", "MBOTE", "JAMBO", "HELLO", "START"}
 # Buts d'un choix de territoire.
 PASSAGE, NON_VISITE, FAUX_AGENT = "passage", "nonvisite", "fauxagent"
@@ -213,7 +215,10 @@ def choisir(ctx: Contexte, choix: str) -> list[Message]:
         if territoire is None:
             return menu(ctx)
         if partie[1] == PASSAGE:
-            return [bouton_menu(ctx, mobile.consulter_passage(ctx.session, u, territoire))]
+            # Proposé que les dates soient publiées ou non : le rappel partira dès qu'elles le seront.
+            return [Boutons(mobile.consulter_passage(ctx.session, u, territoire),
+                            [(f"abonner:{territoire.code}", t["wa_prevenez_moi"]),
+                             ("menu", t["wa_bouton_menu"])])]
         if partie[1] == NON_VISITE:
             attendre(ctx, "localite", territoire=territoire.code)
             return [Boutons(t["wa_saisir_localite"], [("passer", t["wa_passer"])])]
@@ -234,12 +239,28 @@ def choisir(ctx: Contexte, choix: str) -> list[Message]:
         s = mobile.signaler(ctx.session, u, contexte["type"], territoire.code,
                             localite=contexte.get("localite"), badge=contexte.get("badge"))
         return [bouton_menu(ctx, t["signalement_enregistre"].format(id=s.id))]
+    if action == "abonner" and len(partie) == 2:
+        territoire = ctx.session.get(Territoire, partie[1])
+        if territoire is None:
+            return menu(ctx)
+        resultat = abonnements.abonner(ctx.session, u, territoire, ctx.reglages)
+        cle = {"cree": "wa_abonnement_ok", "deja": "wa_abonnement_deja",
+               "maximum": "wa_abonnements_max"}[resultat]
+        return [bouton_menu(ctx, t[cle].format(territoire=territoire.nom,
+                                               maximum=ctx.reglages.whatsapp_abonnements_max))]
+    if action == "stop":
+        return arreter(ctx)
     if action == "conseiller":
         return conseiller(ctx)
     if action == "rappel":
         cree = mobile.demander_rappel(ctx.session, u, "whatsapp")
         return [bouton_menu(ctx, t["rappel_enregistre" if cree else "rappel_deja"])]
     return menu(ctx)
+
+
+def arreter(ctx: Contexte) -> list[Message]:
+    supprimes = abonnements.arreter(ctx.session, ctx.usager.empreinte)
+    return [bouton_menu(ctx, ctx.t["wa_stop_ok" if supprimes else "wa_stop_aucun"])]
 
 
 def ecrire(ctx: Contexte, texte: str) -> list[Message]:
@@ -268,6 +289,8 @@ def ecrire(ctx: Contexte, texte: str) -> list[Message]:
             return confirmation(ctx, "menage_non_visite", territoire, localite=texte[:60])
 
     mots = normaliser(texte).split()
+    if len(mots) == 1 and mots[0] in MOTS_STOP:
+        return arreter(ctx)
     if not mots or (len(mots) <= 2 and mots[0] in SALUTATIONS):
         return menu(ctx, t["wa_bienvenue"])
 
