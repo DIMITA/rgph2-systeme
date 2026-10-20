@@ -31,6 +31,7 @@ from coeur.tableau_de_bord.auth import DUREE_SESSION
 from coeur.tableau_de_bord.routes import routeur as tableau_de_bord
 from coeur.territoires.routes import routeur as territoires
 from coeur.ussd.routes import routeur as ussd
+from coeur.whatsapp.routes import routeur as whatsapp
 
 app = FastAPI(
     title="API du RGPH-2 — INS · Bureau central du recensement",
@@ -88,7 +89,7 @@ app.include_router(documentation.routeur)
 
 # Le portail en dernier : ses adresses (/fr, /ln…) ne doivent masquer aucune route de l'API.
 for routeur in (
-    connaissances, signalements, statistiques, territoires, calendrier, badges, ussd, sms,
+    connaissances, signalements, statistiques, territoires, calendrier, badges, ussd, sms, whatsapp,
     centre_appels, tableau_de_bord, console_agents, simulateur, portail,
 ):
     app.include_router(routeur)

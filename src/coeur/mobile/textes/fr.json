@@ -45,5 +45,20 @@
   "sms_badge_manquant": "Envoyez AGENT suivi du numéro du badge. Exemple : AGENT AB1234",
   "sms_signaler_agent": "Pour le signaler, envoyez FAUXAGENT + territoire + badge. Exemple : FAUXAGENT GOMA {numero}",
   "sms_langue_inconnue": "Langue inconnue. Codes : {codes}",
-  "sms_langue_ok": "Langue enregistrée : {langue}."
+  "sms_langue_ok": "Langue enregistrée : {langue}.",
+  "wa_bienvenue": "Bienvenue sur le service officiel du recensement (RGPH-2), Institut national de la statistique.",
+  "wa_choisir_langue": "Choisissez votre langue.",
+  "wa_menu": "Que voulez-vous faire ? Vous pouvez aussi écrire directement votre question.",
+  "wa_bouton_menu": "Menu",
+  "wa_bouton_choisir": "Choisir",
+  "wa_suite": "Suite de la liste",
+  "wa_passer": "Passer",
+  "wa_media_non_lu": "Je ne lis que les messages écrits. Écrivez votre question ou ouvrez le menu.",
+  "wa_choisir_question": "Choisissez une question.",
+  "wa_reponse_officielle": "Réponse officielle du Bureau central du recensement :",
+  "wa_reponse_en_francais": "Cette réponse n'existe pas encore dans votre langue. La voici en français.",
+  "wa_attente_expiree": "Votre précédente demande a expiré. Reprenez depuis le menu.",
+  "wa_saisir_localite": "Écrivez votre quartier ou votre village, ou touchez « Passer ».",
+  "wa_escalade": "Pas de réponse validée à votre question. Appelez gratuitement le {numero}, ou demandez à être rappelé.",
+  "wa_escalade_sans_numero": "Pas de réponse validée à votre question. Un conseiller peut vous rappeler gratuitement."
 }

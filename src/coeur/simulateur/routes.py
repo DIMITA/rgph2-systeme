@@ -18,6 +18,7 @@ from coeur.connaissances.depot import Corpus
 from coeur.connaissances.routes import corpus_courant
 from coeur.sms import service as sms
 from coeur.ussd import service as ussd
+from coeur.whatsapp import service as whatsapp
 
 routeur = APIRouter(prefix="/simulateur", include_in_schema=False)
 gabarits = charte.gabarits(Path(__file__).parent / "gabarits")
@@ -74,3 +75,37 @@ def simuler_sms(
     reponse, envoi = sms.recevoir(session, corpus, reglages, numero, message)
     return _page(request, reglages, numero=numero, sms_envoye=message, sms_reponse=reponse,
                  sms_statut=envoi)
+
+
+@routeur.post("/whatsapp")
+def simuler_whatsapp(
+    request: Request,
+    numero: str = Form(max_length=20),
+    texte: str = Form(default="", max_length=1000),
+    choix: str = Form(default="", max_length=200),
+    session: Session = Depends(session_db),
+    corpus: Corpus = Depends(corpus_courant),
+    reglages: Parametres = Depends(actif),
+):
+    """Message WhatsApp reçu, comme le transmettrait Meta (texte écrit ou choix touché)."""
+    message = {"from": numero.lstrip("+").replace(" ", ""), "id": "simulateur." + secrets.token_hex(8)}
+    if choix:
+        message |= {"type": "interactive",
+                    "interactive": {"type": "list_reply", "list_reply": {"id": choix}}}
+    else:
+        message |= {"type": "text", "text": {"body": texte}}
+    reponses = whatsapp.recevoir_message(session, corpus, reglages, message)
+    return _page(request, reglages, numero=numero, wa_envoye=texte or None,
+                 wa_reponses=reponses or [])
+
+
+@routeur.get("/whatsapp/messages")
+def messages_whatsapp(numero: str, _reglages: Parametres = Depends(actif)) -> list[dict]:
+    """Messages envoyés à ce numéro par la passerelle de simulation, au format de Meta."""
+    from coeur.whatsapp.messages import charge_utile
+    from coeur.whatsapp.passerelle import PasserelleSimulation, passerelle
+
+    p = passerelle()
+    if not isinstance(p, PasserelleSimulation):
+        raise HTTPException(404, "Passerelle WhatsApp réelle : rien à montrer")
+    return [charge_utile(numero, m) for m in p.derniers(numero)]

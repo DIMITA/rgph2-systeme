@@ -39,6 +39,34 @@
   {% endif %}
 </form>
 
+<h1 class="titre-page filet">WhatsApp</h1>
+{% if wa_envoye %}<div class="bulle vous"><p class="auteur">Vous</p><p>{{ wa_envoye }}</p></div>{% endif %}
+{% for m in wa_reponses or [] %}
+<div class="bulle officielle whatsapp">
+  <p class="auteur">RGPH-2</p>
+  {% if m.corps is defined %}<p class="corps">{{ m.corps }}</p>{% endif %}
+  {% if m.lignes is defined %}
+  <p class="note">{{ m.bouton }} :</p>
+  {% for l in m.lignes %}
+  <form method="post" action="/simulateur/whatsapp"><input type="hidden" name="numero" value="{{ numero }}"><input type="hidden" name="choix" value="{{ l.id }}"><button type="submit" class="secondaire choix-wa">{{ l.titre }}</button></form>
+  {% endfor %}
+  {% elif m.boutons is defined %}
+  {% for identifiant, titre in m.boutons %}
+  <form method="post" action="/simulateur/whatsapp"><input type="hidden" name="numero" value="{{ numero }}"><input type="hidden" name="choix" value="{{ identifiant }}"><button type="submit" class="secondaire choix-wa">{{ titre }}</button></form>
+  {% endfor %}
+  {% elif m.lien is defined %}
+  <p>{{ "Audio" if m.type == "audio" else "Vidéo" }} : <a href="{{ m.lien }}">{{ m.lien }}</a></p>
+  {% endif %}
+</div>
+{% endfor %}
+<form method="post" action="/simulateur/whatsapp" class="telephone">
+  <label for="numero-wa">Numéro WhatsApp</label>
+  <input id="numero-wa" name="numero" value="{{ numero }}" inputmode="tel">
+  <label for="texte-wa">Message</label>
+  <input id="texte-wa" name="texte" placeholder="Bonjour, ou une question" autocomplete="off">
+  <button type="submit">Envoyer sur WhatsApp</button>
+</form>
+
 <h1 class="titre-page filet">SMS</h1>
 {% if sms_envoye %}
 <div class="bulle vous"><p class="auteur">Vous</p><p>{{ sms_envoye }}</p></div>

@@ -32,6 +32,7 @@ def texte_servi(corpus: Corpus, contenu_id: int, langue: str, langue_repli: str)
                 reponse_courte=texte.reponse_courte,
                 audio_url=texte.audio_url,
                 audio_question_url=texte.audio_question_url,
+                video_url=texte.video_url,
             )
     return None
 

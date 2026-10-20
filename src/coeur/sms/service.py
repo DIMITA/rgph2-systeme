@@ -79,7 +79,7 @@ def _territoire(session: Session, u: Usager, mots: list[str],
 def _question(session: Session, corpus: Corpus, reglages: Parametres, u: Usager,
               texte: str) -> str:
     reponse = connaissances.traiter_question(
-        session, corpus, reglages, canal=Canal.SMS, texte=texte[:500], langue=u.langue,
+        session, corpus, reglages, canal=u.canal, texte=texte[:500], langue=u.langue,
         telephone=u.telephone,
     )
     if reponse.contenu is not None:
@@ -90,6 +90,15 @@ def _question(session: Session, corpus: Corpus, reglages: Parametres, u: Usager,
 def repondre(session: Session, corpus: Corpus, reglages: Parametres, u: Usager,
              texte: str) -> str:
     """Texte de la réponse à un SMS reçu (et effets : signalement, rappel, langue…)."""
+    reponse = executer_commande(session, reglages, u, texte)
+    if reponse is not None:
+        return reponse
+    return _question(session, corpus, reglages, u, texte)
+
+
+def executer_commande(session: Session, reglages: Parametres, u: Usager,
+                      texte: str) -> str | None:
+    """Mots-clés communs au SMS et à WhatsApp. None : le message est une question."""
     commande = analyser(texte)
     mots, t = commande.mots, u.t
 
@@ -137,7 +146,7 @@ def repondre(session: Session, corpus: Corpus, reglages: Parametres, u: Usager,
         return t["signalement_enregistre"].format(id=s.id)
 
     if commande.nom == "rappel" and len(mots) <= 1:
-        cree = mobile.demander_rappel(session, u, "sms")
+        cree = mobile.demander_rappel(session, u, u.canal.value)
         return t["rappel_enregistre" if cree else "rappel_deja"]
 
     if commande.nom == "langue" and len(mots) == 1:
@@ -150,7 +159,7 @@ def repondre(session: Session, corpus: Corpus, reglages: Parametres, u: Usager,
                 return u.t["sms_langue_ok"].format(langue=nom)
         return t["sms_langue_inconnue"].format(codes=_codes_langues(session, reglages))
 
-    return _question(session, corpus, reglages, u, texte)
+    return None
 
 
 def recevoir(session: Session, corpus: Corpus, reglages: Parametres, de: str,

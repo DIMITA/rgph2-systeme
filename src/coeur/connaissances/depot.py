@@ -22,6 +22,7 @@ class TextePublie:
     reponse_courte: str | None
     audio_url: str | None
     audio_question_url: str | None = None
+    video_url: str | None = None
 
 
 @dataclass(frozen=True)
@@ -52,6 +53,7 @@ def charger_corpus(session: Session) -> Corpus:
             reponse_courte=t.reponse_courte,
             audio_url=t.audio_url,
             audio_question_url=t.audio_question_url,
+            video_url=t.video_url,
         )
         for t, c in lignes
     }

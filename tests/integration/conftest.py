@@ -52,16 +52,21 @@ def base_propre(moteur_admin):
                 "TRUNCATE coeur.interactions, coeur.signalements, contenus, "
                 "coeur.appels, coeur.rappels, coeur.enregistrements, coeur.ecoutes, "
                 "coeur.badges, coeur.consultations, coeur.sms, coeur.preferences_langue, "
-                "calendrier_passages, coeur.territoires, coeur.provinces RESTART IDENTITY CASCADE"
+                "calendrier_passages, coeur.conversations_whatsapp, coeur.whatsapp_messages, "
+                "coeur.territoires, coeur.provinces RESTART IDENTITY CASCADE"
             )
         )
     from coeur.mobile.service import limiteur_badges
     from coeur.sms.passerelle import passerelle
     from coeur.ussd.service import memoire
+    from coeur.whatsapp import passerelle as wa_passerelle
+    from coeur.whatsapp.service import deja_vus
 
     limiteur_badges().reinitialiser()
     passerelle().messages.clear()
     memoire.vider()
+    deja_vus.vider()
+    wa_passerelle.passerelle().messages.clear()
     with Session(moteur_admin) as session:
         importer_csv(session, RACINE / "donnees" / "territoires.csv")
     cache.invalider()

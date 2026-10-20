@@ -37,3 +37,11 @@ def test_sms(simulateur):
     page = simulateur.post("/simulateur/sms", data={"numero": "0810000000", "message": "AIDE"}).text
     assert "RGPH-2 : envoyez votre question" in page
     assert "Envoi de la réponse : envoye" in page
+
+
+def test_whatsapp(simulateur):
+    page = simulateur.post("/simulateur/whatsapp", data={"numero": "0810000000", "texte": "Bonjour"}).text
+    assert "Bienvenue sur le service officiel" in page
+    assert 'name="choix" value="langue:fr"' in page
+    page = simulateur.post("/simulateur/whatsapp", data={"numero": "0810000000", "choix": "langue:fr"}).text
+    assert "Questions fréquentes" in page

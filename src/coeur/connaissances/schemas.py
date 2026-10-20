@@ -40,6 +40,7 @@ class ContenuSortie(BaseModel):
     reponse_courte: str | None
     audio_url: str | None
     audio_question_url: str | None = None
+    video_url: str | None = None
 
 
 class ReponseSortie(BaseModel):

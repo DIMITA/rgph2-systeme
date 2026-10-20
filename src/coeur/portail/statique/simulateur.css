@@ -4,3 +4,5 @@
 .alerte{background:var(--alerte);border-left:4px solid var(--etat-jaune);padding:.6rem .8rem}
 .ecran{background:var(--bleu-nuit);color:#fff;font:1rem/1.4 ui-monospace,Consolas,monospace;padding:1rem;border-radius:6px;border-top:5px solid var(--etat-bleu);white-space:pre-wrap;max-width:22rem}
 .telephone{max-width:22rem}
+.whatsapp .corps{white-space:pre-wrap}
+.choix-wa{margin:.25rem 0;width:100%;text-align:left}

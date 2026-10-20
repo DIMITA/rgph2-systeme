@@ -9,6 +9,7 @@ from coeur.centre_appels.service import supprimer_enregistrements_avant
 from coeur.interactions.modeles import Interaction
 from coeur.mobile.modeles import Consultation, MessageSms, PreferenceLangue
 from coeur.signalements.modeles import Signalement
+from coeur.whatsapp.modeles import Conversation, MessageWhatsapp
 
 
 def purger(session: Session, avant: datetime) -> dict[str, int]:
@@ -28,6 +29,12 @@ def purger(session: Session, avant: datetime) -> dict[str, int]:
             delete(Consultation).where(Consultation.horodatage < avant)
         ).rowcount,
         "sms": session.execute(delete(MessageSms).where(MessageSms.horodatage < avant)).rowcount,
+        "whatsapp_messages": session.execute(
+            delete(MessageWhatsapp).where(MessageWhatsapp.horodatage < avant)
+        ).rowcount,
+        "conversations_whatsapp": session.execute(
+            delete(Conversation).where(Conversation.maj_a < avant)
+        ).rowcount,
         "badges": session.execute(delete(Badge).where(Badge.importe_a < avant)).rowcount,
         "preferences_langue": session.execute(
             delete(PreferenceLangue).where(PreferenceLangue.maj_a < avant)

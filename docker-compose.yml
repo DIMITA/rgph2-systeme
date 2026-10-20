@@ -40,6 +40,12 @@ x-env-coeur: &env-coeur
   SMS_SEGMENTS_MAX: ${SMS_SEGMENTS_MAX:-3}
   BADGES_VERIFICATIONS_PAR_HEURE: ${BADGES_VERIFICATIONS_PAR_HEURE:-10}
   SIMULATEUR_MOBILE: ${SIMULATEUR_MOBILE:-false}
+  # WhatsApp (API officielle de Meta). « simulation » tant que le compte n'est pas ouvert.
+  WHATSAPP_PASSERELLE: ${WHATSAPP_PASSERELLE:-simulation}
+  WHATSAPP_NUMERO_ID: ${WHATSAPP_NUMERO_ID:-}
+  WHATSAPP_JETON: ${WHATSAPP_JETON:-}
+  WHATSAPP_SECRET_APP: ${WHATSAPP_SECRET_APP:-}
+  WHATSAPP_JETON_VERIFICATION: ${WHATSAPP_JETON_VERIFICATION:-}
 
 x-url-api: &url-api postgresql+psycopg://rgph_api:${RGPH_API_MDP}@postgres:5432/rgph
 

@@ -44,5 +44,8 @@ os.environ.update(
         "SMS_REPONSES_PAR_JOUR": "10",
         "SMS_SEGMENTS_MAX": "3",
         "BADGES_VERIFICATIONS_PAR_HEURE": "10",
+        "WHATSAPP_PASSERELLE": "simulation",
+        "WHATSAPP_SECRET_APP": "secret-app-whatsapp-test",
+        "WHATSAPP_JETON_VERIFICATION": "jeton-verification-test",
     }
 )

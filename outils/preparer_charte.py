@@ -69,6 +69,10 @@ def armoiries() -> None:
             image.save(SORTIE / f"armoiries-{hauteur}{suffixe}.png", optimize=True)
             en_blanc(image).save(SORTIE / f"armoiries-blanc-{hauteur}{suffixe}.png", optimize=True)
     source.resize((32, 32), Image.LANCZOS).save(SORTIE / "favicon.png", optimize=True)
+    # Photo de profil WhatsApp (640 x 640, affichée en cercle) : armoiries en couleur sur blanc.
+    profil = Image.new("RGBA", (640, 640), (255, 255, 255, 255))
+    profil.alpha_composite(source.resize((500, 500), Image.LANCZOS), (70, 70))
+    profil.convert("RGB").save(SORTIE / "profil-whatsapp.png", optimize=True)
     # Fond de la page de connexion de Directus : bleu institutionnel, liseré tricolore en bas.
     fond = Image.new("RGB", (1920, 1080), "#17418a")
     for i, couleur in enumerate(("#0095c9", "#fff24b", "#db3832")):

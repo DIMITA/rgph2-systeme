@@ -45,5 +45,20 @@
   "sms_badge_manquant": "Tinda AGENT na nimero ya kalati. Ndakisa : AGENT AB1234",
   "sms_signaler_agent": "Mpo na koyebisa yango, tinda FAUXAGENT + teritware + kalati. Ndakisa : FAUXAGENT GOMA {numero}",
   "sms_langue_inconnue": "Lokota eyebani te. Ba code : {codes}",
-  "sms_langue_ok": "Lokota ekomami : {langue}."
+  "sms_langue_ok": "Lokota ekomami : {langue}.",
+  "wa_bienvenue": "Boyei malamu na service ya leta ya botangi bato (RGPH-2), Institut national de la statistique.",
+  "wa_choisir_langue": "Pona lokota na yo.",
+  "wa_menu": "Olingi kosala nini ? Okoki mpe kokoma motuna na yo mbala moko.",
+  "wa_bouton_menu": "Menu",
+  "wa_bouton_choisir": "Pona",
+  "wa_suite": "Bisusu na nsima",
+  "wa_passer": "Leka",
+  "wa_media_non_lu": "Natangaka kaka makomi. Koma motuna na yo to fungola menu.",
+  "wa_choisir_question": "Pona motuna moko.",
+  "wa_reponse_officielle": "Eyano ya leta ya Biro monene ya botangi bato :",
+  "wa_reponse_en_francais": "Eyano oyo ezali naino na lokota na yo te. Tala yango na lifalanse.",
+  "wa_attente_expiree": "Bosengi na yo ya liboso eleki ntango. Banda lisusu na menu.",
+  "wa_saisir_localite": "Koma kartie to mboka na yo, to fina « Leka ».",
+  "wa_escalade": "Tozali na eyano endimami te mpo na motuna oyo. Benga ofele na {numero}, to senga ete babenga yo.",
+  "wa_escalade_sans_numero": "Tozali na eyano endimami te mpo na motuna oyo. Mosalisi akoki kobenga yo ofele."
 }

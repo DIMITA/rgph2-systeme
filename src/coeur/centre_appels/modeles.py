@@ -6,7 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from coeur.base import SCHEMA_COEUR, Base
 
 STATUTS_RAPPEL = ("a_rappeler", "en_cours", "rappele", "injoignable", "expire")
-ORIGINES_RAPPEL = ("appel", "ussd", "sms")
+ORIGINES_RAPPEL = ("appel", "ussd", "sms", "whatsapp")
 # Issue d'un appel, notée par l'agent (aucun texte libre : pas de donnée personnelle).
 QUALIFICATIONS = ("renseigne", "signalement", "transmis_bcr", "hors_sujet", "coupe")
 

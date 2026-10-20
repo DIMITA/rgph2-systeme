@@ -118,6 +118,8 @@ CHAMPS = {
     ("contenus_traductions", "reponse_courte"): {"interface": "input", "options": {"softLength": 160},
                                                  "note": "160 caractères au plus : utilisée pour l'USSD et le SMS."},
     ("contenus_traductions", "audio_url"): {"note": "Lien vers l'enregistrement audio (locuteur natif)."},
+    ("contenus_traductions", "video_url"): {
+        "note": "Lien vers une vidéo en langue locale (MP4, 16 Mo au plus pour WhatsApp)."},
     ("contenus_traductions", "audio_question_url"): {
         "note": "Question enregistrée, annoncée dans le menu du serveur vocal (format wav ou mp3)."},
     ("contenus_traductions", "statut"): CHAMP_STATUT,

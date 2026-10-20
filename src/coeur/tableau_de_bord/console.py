@@ -35,7 +35,7 @@ QUALITE = exiger("qualite")
 PAR_PAGE = 50
 NB_RESULTATS_RECHERCHE = 5
 # Canal par lequel le citoyen a demandé à être rappelé.
-ORIGINES = {"appel": "Numéro vert", "ussd": "USSD", "sms": "SMS"}
+ORIGINES = {"appel": "Numéro vert", "ussd": "USSD", "sms": "SMS", "whatsapp": "WhatsApp"}
 
 LIBELLES_QUALIFICATION = {
     "renseigne": "Citoyen renseigné",

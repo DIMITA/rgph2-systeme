@@ -8,7 +8,8 @@ Ce dépôt contient le **cœur commun** auquel se brancheront les six canaux du 
 - étape 4a : le **centre d'appels** (numéro vert sur IP : serveur vocal, file d'attente, rappels, enregistrements) ;
 - étape 4b : la **console des agents** dans le navigateur et l'**écoute qualité** ;
 - étape 5 : l'**USSD et les SMS** (menus, mots-clés, calendrier de passage, vérification des badges), avec la passerelle SMS Kannel ;
-- toutes les interfaces aux couleurs de la **Charte graphique du Gouvernement** (Marque État Congolais).
+- toutes les interfaces aux couleurs de la **Charte graphique du Gouvernement** (Marque État Congolais) ;
+- étape 6a : le **bot WhatsApp** (API officielle de Meta), relié à la base fermée et aux services de l'USSD.
 
 Le cœur fait trois choses :
 
@@ -30,6 +31,7 @@ Les contenus sont rédigés et validés par le Ministère dans **Directus** (le 
 - [Tableau de bord du Ministère](#tableau-de-bord-du-ministère)
 - [Centre d'appels (numéro vert)](#centre-dappels-numéro-vert)
 - [USSD et SMS](#ussd-et-sms)
+- [WhatsApp](#whatsapp)
 - [Charte graphique du Gouvernement](#charte-graphique-du-gouvernement)
 - [Protection des données](#protection-des-données)
 - [Exploitation](#exploitation)
@@ -87,6 +89,7 @@ Chaque module est un dossier de `src/coeur/` qui contient `modeles.py` (tables),
 | `mobile/` | Socle commun USSD et SMS : textes courts, alphabet GSM, langue préférée, services, journal des consultations et des SMS |
 | `ussd/` | Menus USSD (`moteur.py`) rejoués à partir de la saisie cumulée |
 | `sms/` | Mots-clés et questions par SMS (`analyse.py`), envoi par Kannel (`passerelle.py`) avec plafond journalier |
+| `whatsapp/` | Bot WhatsApp : webhook signé (`routes.py`), conversation en listes et boutons (`conversation.py`), envoi par l'API Graph (`passerelle.py`) |
 | `simulateur/` | Page de test imitant un téléphone basique (désactivée par défaut, jamais en production) |
 | `charte/` | Charte graphique du Gouvernement : feuille de style, bloc-marque, police, armoiries, pages d'erreur, documentation de l'API |
 
@@ -201,6 +204,7 @@ La documentation complète est générée automatiquement sur `/docs`. Chaque ap
 | `POST /v1/badges/verification` | canal | Vérifier un badge : `valide`, `retire` ou `inconnu` |
 | `POST /v1/ussd` | ussd | Échange USSD (agrégateur) : réponse `CON …` ou `END …` |
 | `GET /v1/sms/entrant` | sms | SMS reçu, transmis par Kannel |
+| `GET`, `POST /v1/whatsapp/webhook` | signature de Meta | Abonnement du webhook, messages WhatsApp reçus |
 | `GET /sante` | aucune | État du service (pour la supervision) |
 
 ### Exemple : poser une question
@@ -335,6 +339,8 @@ Adresse : `/tableau-de-bord/agent`, réservée au rôle Directus *Agent centre d
 
 Adresse : `/tableau-de-bord/qualite`, réservée au rôle *Superviseur qualité*. On y trouve la liste des conversations (date, poste, langue, durée, issue) et l'écoute dans le navigateur. **Chaque écoute est journalisée** (compte, date, fichier). Ce journal survit à la suppression de l'enregistrement et n'est effacé qu'à la purge de fin de conservation.
 
+---
+
 ## USSD et SMS
 
 Deux canaux pour **tout téléphone, même sans internet**. Ils offrent les mêmes services, et le SMS sert aussi de **repli si les opérateurs refusent l'USSD** (voir les risques dans architecture.md). Le détail technique et la fiche pour l'opérateur sont dans [sms/LISEZMOI.md](sms/LISEZMOI.md).
@@ -391,6 +397,21 @@ Le tableau de bord présente une section *USSD et SMS* : dates de passage consul
 - **De bout en bout** : avec `SMS_SIMULATION=true`, Kannel remplace l'opérateur par un simulateur. Ensuite, `python outils/verifier_mobile.py` passe une session USSD, envoie des SMS à travers Kannel et vérifie qu'aucun numéro n'apparaît en clair.
 - **Badges fictifs** : `donnees/badges-exemple.csv` (EX0001 à EX0003 en service, EX0099 retiré).
 
+---
+
+## WhatsApp
+
+Le bot WhatsApp offre les services de l'USSD et du SMS sous forme de **listes et de boutons**. Il répond aussi aux **questions écrites** : la base fermée donne la réponse complète validée, avec l'**audio et la vidéo en langue locale** s'il y en a. Sans réponse validée, il propose un rappel par un conseiller, qui arrive dans la console des agents.
+
+Il passe par l'**API officielle de Meta**, la seule disponible : **les messages transitent donc hors de RDC**. C'est un point à faire arbitrer par le point focal protection des données. Le cœur ne garde que l'empreinte du numéro, jamais le texte des messages.
+
+- Mise en service (compte, numéro, webhook), profil aux couleurs de la charte, médias et coûts : [whatsapp/LISEZMOI.md](whatsapp/LISEZMOI.md).
+- **Vidéo** : nouveau champ `video_url` dans les traductions (Directus), validé comme le reste. Il faut une adresse HTTPS publique, MP4 de 16 Mo au plus.
+- **Sécurité** : toute notification sans signature valide de Meta (`X-Hub-Signature-256`) est refusée.
+- **Tester sans compte Meta** : la section WhatsApp du simulateur (`/simulateur`), et `python outils/verifier_whatsapp.py`.
+
+---
+
 ## Charte graphique du Gouvernement
 
 Toutes les interfaces que voient les utilisateurs suivent la **Charte graphique du Gouvernement de la RDC** (« La Marque État Congolais », février 2022) : le portail citoyen, les espaces connectés (tableau de bord, console des agents, écoute qualité), le simulateur, la documentation de l'API, les pages d'erreur et Directus.
@@ -438,6 +459,7 @@ Ces règles sont **appliquées par le code** et **vérifiées par des tests**, p
 | Téléphonie sans trace en clair | Pas de CDR, de CEL ni de journal de file. Journaux d'Asterisk sans numéros | `test_logs_et_cdr_sans_numero_en_clair`, `outils/verifier_telephonie.py` |
 | Badges des agents | Stockés sous forme d'empreinte. Vérifications plafonnées par numéro | `test_badges_stockes_sous_forme_d_empreinte`, `test_verifications_de_badge_plafonnees` |
 | USSD et SMS sans trace en clair | Le numéro ne sert qu'à répondre et n'est pas conservé (empreinte seulement). Le journal des SMS ne garde ni texte ni numéro. Le journal d'accès de l'API retire les paramètres d'adresse (numéro, texte, clé) et Kannel n'écrit que les avertissements | `test_aucun_numero_en_clair`, `test_journal_d_acces_sans_parametres`, `outils/verifier_mobile.py` |
+| WhatsApp | Notifications signées seulement. Empreinte du numéro, aucun texte de message conservé, attente oubliée après 30 min | `test_notification_non_signee_ou_mal_signee_refusee`, `test_journal_sans_texte_ni_numero`, `outils/verifier_whatsapp.py` |
 | Contenus validés seulement | L'API ne lit que les contenus `publie`. Seul le rôle Validateur BCR peut publier | `test_questions.py`, `outils/verifier_pile.py` |
 
 **La clé `PEPPER_TELEPHONE` est un secret critique.** Il faut la conserver dans un coffre-fort et **ne jamais la changer en cours d'opération** : les usagers ne seraient plus reconnus. Sa fuite permettrait de retrouver un numéro à partir de son empreinte, par essais successifs.
@@ -508,6 +530,8 @@ python outils/verifier_pile.py
 | `SMS_SEGMENTS_MAX` | 3 | Longueur maximale d'une réponse ; au-delà, la version courte est envoyée |
 | `BADGES_VERIFICATIONS_PAR_HEURE` | 10 | Vérifications de badge par numéro et par heure |
 | `OPERATEUR_SMPP_*` | (vide) | Liaison SMPP de l'opérateur (voir [sms/LISEZMOI.md](sms/LISEZMOI.md)) |
+| `WHATSAPP_PASSERELLE` | simulation | `meta` une fois le compte ouvert |
+| `WHATSAPP_NUMERO_ID`, `WHATSAPP_JETON`, `WHATSAPP_SECRET_APP`, `WHATSAPP_JETON_VERIFICATION` | (vide) | Compte WhatsApp Business de l'INS (voir [whatsapp/LISEZMOI.md](whatsapp/LISEZMOI.md)). Sans `WHATSAPP_SECRET_APP`, toute notification est refusée |
 | `SMS_SIMULATION`, `SIMULATEUR_MOBILE` | false, false | Opérateur SMS simulé et page `/simulateur`. **Jamais en production** |
 
 ### Avant la mise en production
@@ -523,6 +547,7 @@ python outils/verifier_pile.py
 - [ ] Faire valider par le point focal protection des données l'enregistrement des appels (annonce, durée de 90 jours, accès).
 - [ ] Faire valider par l'INS l'intitulé du bloc-marque (*Institut national de la statistique, Bureau central du recensement*, dans `src/coeur/charte/__init__.py`) et, le cas échéant, par le Ministère de la Communication et Médias, garant de la charte.
 - [ ] USSD et SMS : obtenir le code court (ARPTC), la liaison SMPP et un agrégateur USSD (fiche dans `sms/LISEZMOI.md`). Importer la vraie liste des badges, saisir et publier le calendrier, faire relire les textes en lingala. Mettre `SMS_SIMULATION=false` et `SIMULATEUR_MOBILE=false`.
+- [ ] WhatsApp : faire vérifier l'entreprise (INS) chez Meta, obtenir le numéro et le jeton permanent, abonner le webhook en HTTPS, soumettre le profil (fiche dans `whatsapp/LISEZMOI.md`). **Faire arbitrer le transit des messages par Meta** par le point focal protection des données.
 - [ ] Console des agents : publier le WebSocket d'Asterisk (port 8088) **en `wss://` derrière le proxy HTTPS**, et renseigner `ASTERISK_WS_URL`. Les navigateurs n'autorisent le micro que sur un site en HTTPS. Renseigner `SIP_ADRESSE_EXTERNE` avec l'adresse IP publique.
 
 ---
@@ -540,6 +565,7 @@ pytest
 - `tests/integration/` : API de bout en bout contre PostgreSQL, migrations, droits des rôles. Chaque lancement repart d'une base vide et vérifie au passage que les migrations s'appliquent et s'annulent.
 - `outils/verifier_console_agent.py` : la console des agents dans un vrai navigateur (Edge piloté par Playwright, micro factice). Connexion du poste, appel décroché et enregistré avec du son, qualification, pause, rappel, écoute qualité journalisée. Prérequis : `pip install -e ".[e2e]"`.
 - `outils/verifier_mobile.py` : une session USSD, puis des SMS envoyés par l'opérateur simulé de Kannel (aller et retour), et le contrôle de l'absence de numéro en clair dans la base et les journaux. Il faut `SMS_SIMULATION=true`.
+- `outils/verifier_whatsapp.py` : des notifications signées comme celles de Meta, envoyées au webhook (langue, menu, FAQ, question libre, badge, rappel), et le contrôle de l'absence de numéro en clair. Il faut `WHATSAPP_PASSERELLE=simulation` et `SIMULATEUR_MOBILE=true`.
 - `outils/verifier_telephonie.py` : trois appels simulés (serveur vocal, rappel, agent) et contrôle de l'absence de numéro en clair. Il faut `TELEPHONIE_SIMULATION=true`.
 - `outils/verifier_pile.py` : vérification sur la pile complète, Directus compris : circuit de validation et connexion au tableau de bord. Il ne journalise qu'une seule question, pour ne pas fausser les statistiques.
 
@@ -583,4 +609,5 @@ Penser aux droits des rôles (voir `_droits()` dans `migrations/versions/0001_sc
 - **Plafonds USSD et SMS** : le plafond de vérifications de badge est compté en mémoire, comme la limite de débit du portail. Le plafond de SMS, lui, est compté en base.
 - **Textes USSD et SMS** : en français, avec une proposition en lingala à relire. Les autres langues affichent les menus en français, mais servent les réponses validées dans leur langue.
 - **Charte dans Directus** : la page de connexion de Directus garde sa propre police, car Directus ne permet pas de la changer sur ses pages publiques. Le reste de l'application est en Cooper Hewitt.
+- **WhatsApp, premier message** : il reçoit l'accueil et le choix de la langue. Une question posée dans ce premier message n'est pas traitée : le citoyen la repose une fois sa langue choisie.
 - **Exemples de contenus** : ils sont en français seulement et marqués `[EXEMPLE non validé]`. Aucun texte en langue nationale n'est fourni : il doit venir de traducteurs et être validé par le BCR.

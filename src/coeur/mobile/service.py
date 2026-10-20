@@ -88,13 +88,18 @@ def usager(session: Session, canal: Canal, telephone: str, reglages: Parametres)
 
 # --- Questions fréquentes ----------------------------------------------------------------
 
+def ordre_menu(session: Session, corpus: Corpus) -> list[int]:
+    """Contenus servables, dans l'ordre du menu téléphonique (ordre_svi), puis les autres."""
+    ordre = {cid: (o is None, o or 0, cid) for cid, o in session.execute(
+        select(Contenu.id, Contenu.ordre_svi).where(Contenu.statut == STATUT_PUBLIE))}
+    return sorted(corpus.ids_contenus(), key=lambda c: ordre.get(c, (True, 0, c)))
+
+
 def contenus_courts(session: Session, corpus: Corpus, langue: str,
                     reglages: Parametres) -> list[ContenuSortie]:
     """Contenus publiés ayant une réponse courte, dans l'ordre du menu téléphonique."""
-    ordre = {cid: (o is None, o or 0, cid) for cid, o in session.execute(
-        select(Contenu.id, Contenu.ordre_svi).where(Contenu.statut == STATUT_PUBLIE))}
     resultat = []
-    for cid in sorted(corpus.ids_contenus(), key=lambda c: ordre.get(c, (True, 0, c))):
+    for cid in ordre_menu(session, corpus):
         texte = connaissances.texte_servi(corpus, cid, langue, reglages.langue_par_defaut)
         if texte is not None and texte.reponse_courte:
             resultat.append(texte)

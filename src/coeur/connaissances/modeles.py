@@ -66,6 +66,8 @@ class Traduction(Base):
     audio_url: Mapped[str | None] = mapped_column(String(500))
     # Question enregistrée, annoncée dans le menu du serveur vocal.
     audio_question_url: Mapped[str | None] = mapped_column(String(500))
+    # Vidéo en langue locale (WhatsApp, portail).
+    video_url: Mapped[str | None] = mapped_column(String(500))
     statut: Mapped[str] = mapped_column(String(16), default="brouillon", server_default="brouillon")
     date_maj: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

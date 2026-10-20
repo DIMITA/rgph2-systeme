@@ -94,6 +94,20 @@ class Parametres(BaseSettings):
     # Page « simulateur de téléphone » (/simulateur) : jamais en production.
     simulateur_mobile: bool = False
 
+    # WhatsApp (API officielle de Meta, « Cloud API »)
+    # « simulation » (messages gardés en mémoire, pour les tests) ou « meta ».
+    whatsapp_passerelle: str = "simulation"
+    whatsapp_graph_url: str = "https://graph.facebook.com/v21.0"
+    # Identifiant du numéro WhatsApp (« Phone number ID ») et jeton d'accès permanent.
+    whatsapp_numero_id: str = ""
+    whatsapp_jeton: str = ""
+    # Secret de l'application Meta : vérifie la signature de chaque message reçu.
+    whatsapp_secret_app: str = ""
+    # Jeton choisi par nous, demandé par Meta à l'abonnement du webhook.
+    whatsapp_jeton_verification: str = ""
+    # Une conversation sans réponse depuis ce délai repart du menu.
+    whatsapp_attente_minutes: int = 30
+
     def roles_par_espace(self) -> dict[str, set[str]]:
         """Espace (pilotage, agents, qualite) → rôles Directus admis."""
         def liste(texte: str) -> set[str]:
