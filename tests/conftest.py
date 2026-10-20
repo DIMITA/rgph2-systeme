@@ -1,0 +1,33 @@
+"""Configuration commune : valeurs de test, fixées avant tout import de l'application."""
+
+import os
+
+URL_API = os.environ.get(
+    "TEST_DATABASE_URL", "postgresql+psycopg://rgph_api:test_api@localhost:5433/rgph_test"
+)
+URL_ADMIN = os.environ.get(
+    "TEST_DATABASE_URL_ADMIN", "postgresql+psycopg://rgph_admin:test_admin@localhost:5433/rgph_test"
+)
+URL_DIRECTUS = os.environ.get(
+    "TEST_DATABASE_URL_DIRECTUS",
+    "postgresql+psycopg://rgph_directus:test_directus@localhost:5433/rgph_test",
+)
+
+CLE_WEB = "cle-web-test"
+CLE_USSD = "cle-ussd-test"
+CLE_MINISTERE = "cle-ministere-test-0000"
+PEPPER = "pepper-de-test-" + "x" * 32
+
+os.environ.update(
+    {
+        "ENVIRONNEMENT": "test",
+        "DATABASE_URL": URL_API,
+        "PEPPER_TELEPHONE": PEPPER,
+        "CLES_API": f"web:{CLE_WEB},ussd:{CLE_USSD}",
+        "CLE_MINISTERE": CLE_MINISTERE,
+        "CACHE_CONTENUS_SECONDES": "0",
+        "SEUIL_CONFIANCE": "0.5",
+        "MARGE_AMBIGUITE": "0.1",
+        "SEUIL_SECRET_STATISTIQUE": "5",
+    }
+)

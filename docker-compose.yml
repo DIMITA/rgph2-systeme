@@ -1,0 +1,98 @@
+# Démarrage : cp .env.exemple .env  (puis remplacer tous les secrets)  et  docker compose up -d
+# Tests :     voir docker-compose.test.yml
+
+x-image-coeur: &image-coeur
+  build: .
+  image: rgph2-coeur:local
+
+services:
+  postgres:
+    image: postgres:16.4-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: rgph
+      POSTGRES_USER: rgph_admin
+      POSTGRES_PASSWORD: ${POSTGRES_MDP_ADMIN:?à définir dans .env}
+      RGPH_API_MDP: ${RGPH_API_MDP:?à définir dans .env}
+      RGPH_DIRECTUS_MDP: ${RGPH_DIRECTUS_MDP:?à définir dans .env}
+    volumes:
+      - donnees_postgres:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rgph_admin -d rgph"]
+      interval: 5s
+      retries: 20
+
+  # Applique les migrations puis s'arrête. Sert aussi aux commandes d'administration
+  # qui ont besoin du rôle propriétaire (import des territoires, exemples, purge).
+  migrations:
+    <<: *image-coeur
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://rgph_admin:${POSTGRES_MDP_ADMIN}@postgres:5432/rgph
+      PEPPER_TELEPHONE: ${PEPPER_TELEPHONE}
+      CLE_MINISTERE: ${CLE_MINISTERE}
+      ENVIRONNEMENT: ${ENVIRONNEMENT:-developpement}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *image-coeur
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://rgph_api:${RGPH_API_MDP}@postgres:5432/rgph
+      PEPPER_TELEPHONE: ${PEPPER_TELEPHONE:?à définir dans .env}
+      CLES_API: ${CLES_API:?à définir dans .env}
+      CLE_MINISTERE: ${CLE_MINISTERE:?à définir dans .env}
+      ENVIRONNEMENT: ${ENVIRONNEMENT:-developpement}
+    ports:
+      - "8000:8000"
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+
+  directus:
+    image: directus/directus:11.5.1
+    restart: unless-stopped
+    environment:
+      KEY: ${DIRECTUS_KEY:?à définir dans .env}
+      SECRET: ${DIRECTUS_SECRET:?à définir dans .env}
+      DB_CLIENT: pg
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: rgph
+      DB_USER: rgph_directus
+      DB_PASSWORD: ${RGPH_DIRECTUS_MDP}
+      ADMIN_EMAIL: ${DIRECTUS_ADMIN_EMAIL:?à définir dans .env}
+      ADMIN_PASSWORD: ${DIRECTUS_ADMIN_MDP:?à définir dans .env}
+      PUBLIC_URL: ${DIRECTUS_URL_PUBLIQUE:-http://localhost:8055}
+      TELEMETRY: "false"
+    volumes:
+      - fichiers_directus:/directus/uploads
+    ports:
+      - "8055:8055"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8055/server/health || exit 1"]
+      interval: 5s
+      retries: 40
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+
+  # Configure Directus (affichage des collections, rôles Rédacteur / Validateur BCR / Lecteur).
+  # Idempotent : peut être relancé sans risque.
+  directus-config:
+    <<: *image-coeur
+    command: ["python", "outils/configurer_directus.py"]
+    environment:
+      DIRECTUS_URL: http://directus:8055
+      DIRECTUS_ADMIN_EMAIL: ${DIRECTUS_ADMIN_EMAIL}
+      DIRECTUS_ADMIN_MDP: ${DIRECTUS_ADMIN_MDP}
+    depends_on:
+      directus:
+        condition: service_healthy
+
+volumes:
+  donnees_postgres:
+  fichiers_directus:

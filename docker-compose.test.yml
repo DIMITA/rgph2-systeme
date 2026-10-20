@@ -1,0 +1,24 @@
+# Base jetable pour les tests automatiques (port 5433, données en mémoire).
+# docker compose -f docker-compose.test.yml up -d   puis   pytest
+# Les mots de passe ci-dessous ne servent qu'aux tests.
+name: rgph2-tests
+
+services:
+  postgres-test:
+    image: postgres:16.4-alpine
+    environment:
+      POSTGRES_DB: rgph_test
+      POSTGRES_USER: rgph_admin
+      POSTGRES_PASSWORD: test_admin
+      RGPH_API_MDP: test_api
+      RGPH_DIRECTUS_MDP: test_directus
+    volumes:
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    tmpfs:
+      - /var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rgph_admin -d rgph_test"]
+      interval: 2s
+      retries: 30
