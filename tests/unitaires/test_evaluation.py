@@ -55,3 +55,41 @@ def test_colonnes_manquantes(tmp_path):
     fichier.write_text("langue,question\nfr,bonjour\n", encoding="utf-8")
     with pytest.raises(ValueError, match="attendu"):
         lire_cas(fichier)
+
+
+def test_taux_d_erreur_de_mots():
+    from coeur.connaissances.evaluation import taux_erreur_mots
+
+    assert taux_erreur_mots("Ntango nini bakoya", "ntango nini bakoya") == 0
+    assert taux_erreur_mots("ntango nini bakoya", "ntango bakoya") == 1 / 3      # suppression
+    assert taux_erreur_mots("ntango nini bakoya", "tango nini bakoya awa") == 2 / 3  # subst. + insertion
+    assert taux_erreur_mots("", "") == 0
+
+
+def test_evaluation_de_messages_vocaux(tmp_path):
+    from coeur.comprehension.transcription import TranscripteurSimulation
+
+    # En simulation, le « son » est le texte : un fichier vide est un audio incompris.
+    (tmp_path / "q1.ogg").write_bytes("c'est quand le passage des agents".encode())
+    (tmp_path / "q2.ogg").write_bytes(b"")
+    (tmp_path / "q.csv").write_text(
+        "langue,audio,transcription,attendu\n"
+        "fr,q1.ogg,c'est quand le passage des agents recenseurs,exemple-calendrier-passage\n"
+        "fr,q2.ogg,,exemple-verifier-agent\n", encoding="utf-8")
+    cas = lire_cas(tmp_path / "q.csv")
+    assert cas[0].audio == tmp_path / "q1.ogg" and cas[0].question is None
+    resultat = evaluer(corpus_exemple(), cas, parametres(), seuil=0.5,
+                       moteur=TranscripteurSimulation())
+    assert resultat.par_langue["fr"]["juste"] == 1
+    assert resultat.par_langue["fr"]["escalade_a_tort"] == 1
+    assert resultat.non_transcrits["fr"] == 1
+    assert resultat.wer_moyen("fr") == 1 / 8  # « recenseurs » manquant (« c est » : deux mots)
+    assert "[audio] q2.ogg" in rapport(resultat, 0.5, details=True)
+
+
+def test_audio_sans_transcripteur(tmp_path):
+    import pytest
+
+    (tmp_path / "q.ogg").write_bytes(b"x")
+    with pytest.raises(ValueError, match="TRANSCRIPTION"):
+        evaluer(corpus_exemple(), [Cas("ln", None, None, tmp_path / "q.ogg")], parametres())
