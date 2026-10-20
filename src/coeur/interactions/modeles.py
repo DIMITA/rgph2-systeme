@@ -33,4 +33,5 @@ class Interaction(Base):
     contenu_id: Mapped[int | None]
     score: Mapped[float]
     # Question de l'usager, numéros et courriels masqués. Sert à enrichir la FAQ.
-    texte_masque: Mapped[str] = mapped_column(String(500))
+    # None selon CONSERVATION_TEXTE_QUESTIONS.
+    texte_masque: Mapped[str | None] = mapped_column(String(500))

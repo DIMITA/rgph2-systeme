@@ -125,7 +125,7 @@ def test_synthese(connecte, activite):
     html = connecte.get("/tableau-de-bord").text
     assert "10" in html                      # 10 interactions au total
     assert "Nord-Kivu" in html               # noms des unités, pas seulement les codes
-    assert "&lt; 5" in html                  # petits effectifs masqués
+    assert ">masqué<" in html                # petits effectifs masqués
     assert "Quartier Soyo" not in html       # jamais de localité dans les statistiques
     assert "<progress" in html               # barres sans style en ligne (CSP)
 

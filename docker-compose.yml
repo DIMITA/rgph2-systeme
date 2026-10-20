@@ -14,6 +14,7 @@ x-env-coeur: &env-coeur
   CLE_MINISTERE: ${CLE_MINISTERE:?à définir dans .env}
   ENVIRONNEMENT: ${ENVIRONNEMENT:-developpement}
   NUMERO_VERT: ${NUMERO_VERT:-}
+  CONSERVATION_TEXTE_QUESTIONS: ${CONSERVATION_TEXTE_QUESTIONS:-tout}
   # Tableau de bord : vérifie les comptes auprès de Directus.
   DIRECTUS_URL: http://directus:8055
   SECRET_SESSION: ${SECRET_SESSION:?à définir dans .env}

@@ -295,7 +295,7 @@ Les Rédacteurs et les Lecteurs sont refusés. La session dure 8 heures, dans un
 **Mêmes garde-fous que l'API :**
 
 - pas de maille plus fine que le territoire ;
-- effectifs inférieurs à `SEUIL_SECRET_STATISTIQUE` affichés « < 5 », y compris dans l'export ;
+- effectifs inférieurs à `SEUIL_SECRET_STATISTIQUE`, et ceux qui permettraient de les retrouver par différence, affichés « masqué » (vides dans l'export) ;
 - aucune localité dans les statistiques. Seule la liste des signalements montre le quartier ou le village, parce que les équipes de terrain en ont besoin.
 
 **Heures.** La base enregistre en UTC. Le tableau de bord affiche les heures et découpe les journées selon `FUSEAU_HORAIRE` : `Africa/Kinshasa` (UTC+1) par défaut, ou `Africa/Lubumbashi` (UTC+2) pour l'est.
@@ -501,6 +501,7 @@ python outils/verifier_pile.py
 | `SEUIL_CONFIANCE` | 0.5 | Plus haut : plus d'escalades, moins de risque d'erreur |
 | `MARGE_AMBIGUITE` | 0.1 | Écart minimal entre les deux meilleurs contenus |
 | `SEUIL_SECRET_STATISTIQUE` | 5 | Effectif minimal publié |
+| `CONSERVATION_TEXTE_QUESTIONS` | `tout` | Texte (masqué) des questions gardé dans le journal : `tout`, `escalades` ou `aucun`. À arbitrer par le point focal protection des données |
 | `CACHE_CONTENUS_SECONDES` | 60 | Délai maximal de prise en compte d'une publication |
 | `ENVIRONNEMENT` | developpement | Avec `production`, le chargement des exemples est refusé |
 | `NUMERO_VERT` | (vide) | Affiché par le portail en cas d'escalade. Vide : aucun numéro affiché |
@@ -604,7 +605,7 @@ Penser aux droits des rôles (voir `_droits()` dans `migrations/versions/0001_sc
 
 - **Moteur de recherche** : il est lexical (mots et variantes). Il fonctionne bien en français sur la FAQ d'exemple. Pour les langues nationales, la qualité dépendra surtout des **formulations** saisies. Il faut l'évaluer langue par langue avec de vraies questions.
 - **Secret statistique** : petites cases masquées, puis masquage complémentaire dans chaque tableau publié (toutes les marges, et les territoires d'une même province). C'est une règle simple, pas une optimisation : elle masque parfois plus que le strict nécessaire, et elle ne couvre pas un croisement entre deux périodes choisies par l'utilisateur (du 1er au 10 moins du 1er au 9). Les chiffres des centres d'appels, de l'USSD et de WhatsApp sont des totaux nationaux, sans répartition à soustraire. À faire valider par le point focal protection des données avant toute publication externe.
-- **Texte des questions** : il est conservé, masqué, pour améliorer la FAQ. Un citoyen peut néanmoins y écrire un nom. Si ce risque est jugé trop élevé, on peut ne conserver que le texte des escalades, ou aucun texte.
+- **Texte des questions** : il est conservé, masqué, pour améliorer la FAQ. Un citoyen peut néanmoins y écrire un nom. `CONSERVATION_TEXTE_QUESTIONS=escalades` ne garde que les questions restées sans réponse (celles qui servent à enrichir la FAQ), `aucun` n'en garde aucune. Le choix revient au point focal protection des données.
 - **Territoires** : le fichier fourni est un échantillon aux codes provisoires.
 - **Hébergement** : le lieu d'hébergement en RDC reste à décider (centre de données local ou cloud avec région locale). La pile Docker convient aux deux options.
 - **Interface du portail** : disponible en français et en lingala (proposition à relire). Les autres langues affichent l'interface en français tant que leur fichier `textes/<langue>.json` n'est pas fourni.

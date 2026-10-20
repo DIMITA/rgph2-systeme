@@ -1,6 +1,7 @@
 """Paramètres de l'application, lus dans les variables d'environnement (ou le fichier .env)."""
 
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -37,6 +38,11 @@ class Parametres(BaseSettings):
     # Durée pendant laquelle les contenus publiés restent en mémoire avant relecture.
     cache_contenus_secondes: int = 60
     langue_par_defaut: str = "fr"
+    # Texte des questions gardé dans le journal (masqué) : « tout », « escalades »
+    # (seulement les questions restées sans réponse, utiles pour enrichir la FAQ) ou
+    # « aucun ». Un citoyen peut écrire un nom dans sa question : à arbitrer par le
+    # point focal protection des données.
+    conservation_texte_questions: Literal["tout", "escalades", "aucun"] = "tout"
 
     # Portail web
     # Vide tant que le numéro n'est pas attribué : le portail n'en affiche alors aucun.

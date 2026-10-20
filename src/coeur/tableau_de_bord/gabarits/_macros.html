@@ -1,5 +1,7 @@
-{# Effectif affiché, ou « < seuil » s'il est masqué (secret statistique). #}
-{% macro nb(valeur, seuil) %}{% if valeur is none %}&lt; {{ seuil }}{% else %}{{ "{:,}".format(valeur).replace(",", " ") }}{% endif %}{% endmacro %}
+{# Effectif affiché, ou « masqué » (secret statistique). Jamais « < seuil » : une case
+   peut être masquée en complément d'une autre alors qu'elle dépasse le seuil, et
+   distinguer les deux cas aiderait à retrouver les valeurs. #}
+{% macro nb(valeur, seuil) %}{% if valeur is none %}<span title="Secret statistique">masqué</span>{% else %}{{ "{:,}".format(valeur).replace(",", " ") }}{% endif %}{% endmacro %}
 
 {# Tableau de répartition avec barres <progress> (aucun style en ligne : CSP). #}
 {% macro repartition(titre, lignes, champ, noms, seuil, maximum, escalades=false) %}

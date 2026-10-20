@@ -163,3 +163,24 @@ def test_lecture_d_un_contenu(client, session_admin, exemples):
     assert client.get(f"/v1/contenus/{cid}", headers=WEB).json()["cle"] == "exemple-confidentialite"
     brouillon = ajouter_contenu(session_admin, "b", "Question ?", statut_contenu="brouillon")
     assert client.get(f"/v1/contenus/{brouillon}", headers=WEB).status_code == 404
+
+
+def test_conservation_du_texte_limitee_aux_escalades(client, exemples, session_admin, monkeypatch):
+    from coeur.config import parametres
+
+    monkeypatch.setattr(parametres(), "conservation_texte_questions", "escalades")
+    poser(client, QUESTION_CALENDRIER)
+    poser(client, {"texte": "qui a gagné le match ?"})
+    textes = dict(session_admin.execute(select(Interaction.resultat, Interaction.texte_masque)).all())
+    assert textes == {"reponse": None, "escalade": "qui a gagné le match ?"}
+
+
+def test_aucun_texte_conserve(client, exemples, session_admin, monkeypatch):
+    from coeur.config import parametres
+    from coeur.interactions.service import escalades_frequentes
+
+    monkeypatch.setattr(parametres(), "conservation_texte_questions", "aucun")
+    poser(client, QUESTION_CALENDRIER)
+    poser(client, {"texte": "qui a gagné le match ?"})
+    assert set(session_admin.scalars(select(Interaction.texte_masque))) == {None}
+    assert escalades_frequentes(session_admin) == []
