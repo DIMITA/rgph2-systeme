@@ -86,7 +86,9 @@ Mesure du 20 octobre 2026, `omniASR_CTC_1B`, 20 enregistrements par langue, mêm
 | Tshiluba | connu du modèle (`lua_Latn`), aucun enregistrement public pour le mesurer | |
 | Kikongo | **absent** (`kng`, `ktu`, `kon`, `kwy`, `yom` ; seul le vili `vif` est connu) | |
 
-Meilleur en français, moins bon en lingala que MMS. Il ouvre la voie au tshiluba, à mesurer sur de vrais messages avant ouverture. Pour le kikongo, voir la démarche dans `COMPREHENSION.md` (transcription sans code de langue, `kg:-`, à mesurer ; sinon entraînement). Installation : `docker compose build --build-arg MOTEUR=omnilingual transcription`, puis `MOTEUR=omnilingual` à l'exécution. fairseq2 exige sa variante processeur (index de Meta) et des versions précises de PyTorch, torchaudio et pyarrow : voir le `Dockerfile`.
+`omniASR_LLM_1B`, même mesure : français 6 % / 5 %, lingala **37 %** / 20 % (quelques enregistrements où il manque ou invente des passages), kiswahili 14 % / 15 %, avec **3,1 à 5,2 s de calcul par seconde d'audio** : inutilisable sur processeur au pic, à réserver à un serveur avec GPU.
+
+La version CTC est meilleure en français, moins bonne en lingala que MMS. Il ouvre la voie au tshiluba, à mesurer sur de vrais messages avant ouverture. Pour le kikongo, voir la démarche dans `COMPREHENSION.md` (transcription sans code de langue, `kg:-`, à mesurer ; sinon entraînement). Installation : `docker compose build --build-arg MOTEUR=omnilingual transcription`, puis `MOTEUR=omnilingual` à l'exécution. fairseq2 exige sa variante processeur (index de Meta) et des versions précises de PyTorch, torchaudio et pyarrow : voir le `Dockerfile`.
 - Sur processeur seul, le calcul prend entre un tiers et deux tiers de la durée de l'audio selon la machine (0,35 à 0,69 s par seconde d'audio sur deux mesures du même runner partagé), un message à la fois. C'est assez pour un pilote, pas pour le pic.
 
 ## Matériel

@@ -21,7 +21,7 @@ Le détail est dans `transcription/LISEZMOI.md`. En résumé (Google FLEURS, phr
 | Tshiluba | **absent** | connu (`lua_Latn`), **pas d'enregistrement public pour le mesurer** |
 | Kikongo | **absent** | **absent** (ni `kng`, `ktu`, `kon`, `kwy` ni `yom` ; seul le vili, `vif`) |
 
-Mesure du 20 octobre 2026, 20 enregistrements par langue (MMS : 40), processeur seul : Omnilingual CTC calcule en 0,45 s par seconde d'audio, comme MMS. La version LLM 1B est mesurée à part (workflow `transcription.yml`).
+Mesure du 20 octobre 2026, 20 enregistrements par langue (MMS : 40), processeur seul : Omnilingual CTC calcule en 0,45 s par seconde d'audio, comme MMS. La version LLM 1B (`omniASR_LLM_1B`) fait à peine mieux en français (6 %) et en kiswahili (14 %), mais elle est **3 à 5 fois plus lente que la parole** sur processeur, et en lingala elle déraille sur quelques enregistrements (37 % en moyenne, 20 % en médiane : des passages manqués ou inventés). Sans GPU, c'est la version CTC qu'il faut prendre.
 
 - **Omnilingual est meilleur en français** (7 % contre 16 %) et **moins bon en lingala** (25 % contre 18 %) : pas de vainqueur général. Le service peut garder MMS pour le lingala et le kiswahili et prendre Omnilingual pour le tshiluba, en deux instances.
 - **Le tshiluba devient possible**, mais rien ne permet de le mesurer aujourd'hui : ni FLEURS ni le corpus publié avec le modèle (`facebook/omnilingual-asr-corpus`, 1 473 fichiers) ne contiennent de tshiluba ou de kikongo. Il faut le recueil de l'étape 2 ci-dessous avant de l'ouvrir.
