@@ -30,6 +30,7 @@ from coeur.terrain.routes import routeur as terrain
 from coeur.tableau_de_bord.auth import CHEMIN as CHEMIN_TDB
 from coeur.tableau_de_bord.auth import DUREE_SESSION
 from coeur.tableau_de_bord.routes import routeur as tableau_de_bord
+from coeur.tableau_de_bord.terrain import routeur as terrain_tableau_de_bord
 from coeur.territoires.routes import routeur as territoires
 from coeur.ussd.routes import routeur as ussd
 from coeur.whatsapp.routes import routeur as whatsapp
@@ -98,6 +99,6 @@ app.include_router(documentation.routeur)
 for routeur in (
     connaissances, signalements, statistiques, territoires, calendrier, badges, ussd, sms, whatsapp,
     terrain,
-    centre_appels, tableau_de_bord, console_agents, simulateur, portail,
+    centre_appels, tableau_de_bord, console_agents, terrain_tableau_de_bord, simulateur, portail,
 ):
     app.include_router(routeur)

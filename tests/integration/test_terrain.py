@@ -239,3 +239,72 @@ def test_verification_de_badge(client, session_admin, kiosque, badges):
     assert client.post("/v1/terrain/badge", json={"numero": "?"}, headers=kiosque).status_code == 422
     assert compter(session_admin, Consultation, Consultation.canal == "kiosque",
                    Consultation.service == "badge") == 1
+
+
+# --- Tableau de bord : espace terrain -----------------------------------------------------------
+
+class AuthFactice:
+    COMPTES = {"admin@bcr.cd": "Administrator", "validateur@bcr.cd": "Validateur BCR"}
+
+    def verifier(self, email, mdp):
+        from coeur.tableau_de_bord.auth import Utilisateur
+
+        return Utilisateur(email, self.COMPTES[email]) if email in self.COMPTES else None
+
+
+@pytest.fixture
+def tableau(client):
+    from coeur.main import app
+    from coeur.tableau_de_bord.auth import authentificateur
+
+    app.dependency_overrides[authentificateur] = AuthFactice
+
+    def connecter(email):
+        client.post("/tableau-de-bord/deconnexion")
+        r = client.post("/tableau-de-bord/connexion", data={"email": email, "mdp": "x"},
+                        follow_redirects=False)
+        assert r.status_code == 303
+        return client
+
+    yield connecter
+    app.dependency_overrides.pop(authentificateur, None)
+
+
+def test_espace_terrain_reserve_a_l_administrateur(tableau):
+    client = tableau("validateur@bcr.cd")
+    r = client.get("/tableau-de-bord/terrain", follow_redirects=False)
+    assert r.status_code == 303 and "Kiosques et Ambassadeurs" not in client.get("/tableau-de-bord").text
+    assert tableau("admin@bcr.cd").get("/tableau-de-bord/terrain").status_code == 200
+
+
+def test_enroler_activer_revoquer_depuis_le_tableau_de_bord(tableau, session_admin):
+    import re
+
+    client = tableau("admin@bcr.cd")
+    r = client.post("/tableau-de-bord/terrain", data={
+        "type": "kiosque", "code": "kio-nkv-gom-02", "territoire_code": "NKV-GOM",
+        "lieu": "Mairie de Goma", "langues": ["ln", "sw", "zz"]})
+    assert r.status_code == 200 and r.headers["Cache-Control"] == "no-store"
+    [code] = re.findall(r'class="code-activation">([A-Z0-9-]{14})<', r.text)
+    appareil = session_admin.scalar(select(Appareil))
+    assert (appareil.code, appareil.langues, appareil.lieu) == ("KIO-NKV-GOM-02", "fr,ln,sw",
+                                                                "Mairie de Goma")
+    assert "En attente d&#39;activation" in r.text
+
+    # Le code n'est plus jamais réaffiché.
+    assert code not in client.get("/tableau-de-bord/terrain").text
+    jeton = client.post("/v1/terrain/activation", json={"code": code}).json()["jeton"]
+    assert "Actif" in client.get("/tableau-de-bord/terrain").text
+
+    r = client.post(f"/tableau-de-bord/terrain/{appareil.id}/revoquer")
+    assert "est révoqué" in r.text and "Révoqué" in r.text
+    assert client.get("/v1/terrain/paquet",
+                      headers={"Authorization": f"Bearer {jeton}"}).status_code == 401
+
+
+def test_erreur_d_enrolement_reaffiche_la_saisie(tableau):
+    client = tableau("admin@bcr.cd")
+    r = client.post("/tableau-de-bord/terrain", data={
+        "type": "ambassadeur", "code": "AMB 01 !", "territoire_code": "NKV-GOM"})
+    assert r.status_code == 422 and "Code d&#39;appareil invalide" in r.text
+    assert 'value="AMB 01 !"' in r.text
