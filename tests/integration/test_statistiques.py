@@ -23,9 +23,11 @@ def poser(client, territoire, telephone, entetes=WEB):
 
 @pytest.fixture
 def activite(client, exemples):
-    # Goma : 6 questions de 6 usagers différents. Matadi : 2 questions.
+    # Goma : 6 questions de 6 usagers différents. Kinshasa : 5. Matadi : 2.
     for i in range(6):
         poser(client, "NKV-GOM", f"08100000{i:02d}")
+    for i in range(5):
+        poser(client, "KIN-V", f"08300000{i:02d}")
     poser(client, "KCE-MAT", "0820000001")
     poser(client, "KCE-MAT", "0820000002")
     for _ in range(3):
@@ -57,8 +59,8 @@ def test_niveau_national(client, activite):
     assert resultat["seuil_secret"] == 5
     [ligne] = resultat["interactions"]
     assert ligne["unite"] == "RDC"
-    assert ligne["nb_interactions"] == 8
-    assert ligne["nb_usagers_uniques"] == 8
+    assert ligne["nb_interactions"] == 13
+    assert ligne["nb_usagers_uniques"] == 13
     assert ligne["nb_escalades"] == 0
 
 
@@ -67,12 +69,15 @@ def test_niveau_province(client, activite):
     assert lignes["NKV"]["nb_interactions"] == 6
     assert lignes["KCE"]["masque"] is True
     assert lignes["KCE"]["nb_interactions"] is None
+    # Masquage complémentaire : sinon KCE = 13 (national) - 6 - 5.
+    assert lignes["KIN"]["nb_interactions"] is None
 
 
 def test_niveau_territoire_avec_secret_statistique(client, activite):
     lignes = {l["unite"]: l for l in stats(client, niveau="territoire")["interactions"]}
     assert lignes["NKV-GOM"]["nb_interactions"] == 6
     assert lignes["NKV-GOM"]["masque"] is False
+    assert lignes["KIN-V"]["nb_interactions"] is None
     assert lignes["KCE-MAT"] == {
         "unite": "KCE-MAT", "canal": "web", "langue": "fr", "nb_interactions": None,
         "nb_escalades": None, "nb_usagers_uniques": None, "masque": True,
@@ -95,20 +100,21 @@ def test_filtre_par_dates(client, activite, session_admin):
     session_admin.commit()
     hier = (datetime.now(timezone.utc) - timedelta(days=1)).date()
     lignes = stats(client, niveau="territoire", depuis=hier.isoformat())["interactions"]
-    assert {l["unite"] for l in lignes} == {"KCE-MAT"}
+    assert {l["unite"] for l in lignes} == {"KCE-MAT", "KIN-V"}
 
 
 def test_repartition_par_axe(session_admin, activite):
     [total] = repartir_interactions(session_admin, None, None, None, 5)
-    assert (total.valeur, total.nb_interactions, total.nb_usagers_uniques) == ("RDC", 8, 8)
+    assert (total.valeur, total.nb_interactions, total.nb_usagers_uniques) == ("RDC", 13, 13)
 
     lignes = repartir_interactions(session_admin, Axe.TERRITOIRE, None, None, 5)
     par_territoire = {e.valeur: e for e in lignes}
     assert par_territoire["NKV-GOM"].nb_interactions == 6
     assert par_territoire["KCE-MAT"].masque and par_territoire["KCE-MAT"].nb_interactions is None
+    assert par_territoire["KIN-V"].nb_interactions is None
 
     [web] = repartir_interactions(session_admin, Axe.CANAL, None, None, 5)
-    assert (web.valeur, web.nb_interactions) == ("web", 8)
+    assert (web.valeur, web.nb_interactions) == ("web", 13)
 
     [rumeurs] = repartir_signalements(session_admin, Axe.TYPE, None, None, 5)
     assert (rumeurs.valeur, rumeurs.nb_signalements, rumeurs.masque) == ("rumeur", None, True)
@@ -130,3 +136,19 @@ def test_totaux_nationaux(session_admin, activite):
 def test_repartitions_sur_base_vide(session_admin):
     assert repartir_interactions(session_admin, None, None, None, 5) == []
     assert repartir_signalements(session_admin, None, None, None, 5) == []
+
+
+def test_province_moins_ses_autres_territoires(client, exemples):
+    """Kongo-Central publié (7) : Matadi (2) ne doit pas se déduire de Mbanza-Ngungu (5)."""
+    for i in range(5):
+        poser(client, "KCE-MBZ", f"08400000{i:02d}")
+    for i in range(2):
+        poser(client, "KCE-MAT", f"08500000{i:02d}")
+    for i in range(9):
+        poser(client, "NKV-GOM", f"08600000{i:02d}")
+    provinces = {l["unite"]: l["nb_interactions"] for l in stats(client, niveau="province")["interactions"]}
+    assert provinces == {"KCE": 7, "NKV": 9}
+    territoires = {l["unite"]: l["nb_interactions"]
+                   for l in stats(client, niveau="territoire")["interactions"]}
+    assert territoires["KCE-MAT"] is None and territoires["KCE-MBZ"] is None
+    assert territoires["NKV-GOM"] == 9

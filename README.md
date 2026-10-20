@@ -452,7 +452,7 @@ Ces règles sont **appliquées par le code** et **vérifiées par des tests**, p
 | Numéro de téléphone | Jamais stocké. Seule son **empreinte HMAC-SHA256** (`confidentialite/service.py`) est conservée : elle permet de compter les usagers uniques | `test_interaction_journalisee_sans_donnee_personnelle` |
 | Textes libres | Les suites de 6 chiffres ou plus et les adresses électroniques sont remplacées par `[masqué]` | `test_confidentialite.py` |
 | Statistiques jamais sous le territoire | Seuls les niveaux `national`, `province` et `territoire` existent. La localité des signalements n'est jamais lue par les statistiques | `test_aucune_maille_plus_fine_que_le_territoire`, `test_signalements_agreges_sans_localite` |
-| Secret statistique | Effectif entre 1 et 4 masqué (`SEUIL_SECRET_STATISTIQUE`=5). Une ligne entière est masquée si elle compte moins de 5 interactions | `test_niveau_territoire_avec_secret_statistique` |
+| Secret statistique | Effectif entre 1 et 4 masqué (`SEUIL_SECRET_STATISTIQUE`=5). Une ligne entière est masquée si elle compte moins de 5 interactions. Masquage complémentaire : une case masquée ne se déduit jamais d'un total publié (national, province, canal, langue) | `test_niveau_territoire_avec_secret_statistique`, `test_secret_statistique.py` |
 | Conservation limitée | Commande `purger` (voir [Exploitation](#exploitation)) | `test_retention.py` |
 | Cloisonnement | 3 rôles PostgreSQL. L'API ne peut pas modifier les contenus. Directus ne voit ni les interactions ni les signalements | `test_droits_base.py` |
 | Numéro des demandes de rappel | **Chiffré** dans la base, effacé dès le rappel traité ou après 7 jours | `test_demande_de_rappel_chiffree`, `test_rappels_expires_apres_sept_jours` |
@@ -603,7 +603,7 @@ Penser aux droits des rôles (voir `_droits()` dans `migrations/versions/0001_sc
 ## Limites connues et points à trancher
 
 - **Moteur de recherche** : il est lexical (mots et variantes). Il fonctionne bien en français sur la FAQ d'exemple. Pour les langues nationales, la qualité dépendra surtout des **formulations** saisies. Il faut l'évaluer langue par langue avec de vraies questions.
-- **Secret statistique** : seul le masquage des petites cases est appliqué. En croisant plusieurs niveaux (national moins somme des territoires), on pourrait parfois déduire une valeur masquée. Ce point est à revoir avec le point focal protection des données avant toute publication externe.
+- **Secret statistique** : petites cases masquées, puis masquage complémentaire dans chaque tableau publié (toutes les marges, et les territoires d'une même province). C'est une règle simple, pas une optimisation : elle masque parfois plus que le strict nécessaire, et elle ne couvre pas un croisement entre deux périodes choisies par l'utilisateur (du 1er au 10 moins du 1er au 9). Les chiffres des centres d'appels, de l'USSD et de WhatsApp sont des totaux nationaux, sans répartition à soustraire. À faire valider par le point focal protection des données avant toute publication externe.
 - **Texte des questions** : il est conservé, masqué, pour améliorer la FAQ. Un citoyen peut néanmoins y écrire un nom. Si ce risque est jugé trop élevé, on peut ne conserver que le texte des escalades, ou aucun texte.
 - **Territoires** : le fichier fourni est un échantillon aux codes provisoires.
 - **Hébergement** : le lieu d'hébergement en RDC reste à décider (centre de données local ou cloud avec région locale). La pile Docker convient aux deux options.
