@@ -132,11 +132,25 @@ class Parametres(BaseSettings):
     # Abonnement (et numéro) effacé ce nombre de jours après la fin du dernier passage.
     whatsapp_abonnement_jours_apres: int = 7
 
+    # Compréhension de la voix (voir coeur.comprehension)
+    # « aucune », « service » (modèle open source hébergé par le projet) ou « simulation ».
+    transcription: Literal["aucune", "service", "simulation"] = "aucune"
+    transcription_url: str = "http://transcription:9000"
+    # Langues dont les messages vocaux sont transcrits, ouvertes une à une après
+    # évaluation sur de vrais messages (ex. « sw,ln »). Les autres : proposition de rappel.
+    transcription_langues: str = ""
+    transcription_delai_secondes: float = 60
+    # Taille maximale d'un message vocal transcrit (environ 2 minutes en Opus).
+    transcription_taille_max_ko: int = 2048
+
     # Kiosques et Ambassadeurs
     # Validité d'un code d'activation remis pour une tablette ou un téléphone.
     terrain_activation_jours: int = 7
     # Les identifiants des remontées reçues (anti-doublon) sont effacés après ce délai.
     conservation_remontees_jours: int = 60
+
+    def langues_transcription(self) -> set[str]:
+        return {l.strip() for l in self.transcription_langues.split(",") if l.strip()}
 
     def langue_modele(self, langue: str) -> str:
         correspondances = dict(p.strip().split(":", 1)

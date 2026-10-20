@@ -20,6 +20,7 @@ def enregistrer(
     usager_empreinte: str | None,
     reponse: ReponseSortie,
     horodatage: datetime | None = None,
+    entree: str = "texte",
 ) -> Interaction:
     """Journalise un échange. `horodatage` : heure de l'échange s'il a eu lieu hors ligne."""
     conservation = parametres().conservation_texte_questions
@@ -36,6 +37,7 @@ def enregistrer(
         contenu_id=reponse.contenu.contenu_id if reponse.contenu else None,
         score=reponse.score,
         texte_masque=masquer_donnees_sensibles(texte)[:500] if garder_texte else None,
+        entree=entree,
     )
     if horodatage is not None:
         interaction.horodatage = horodatage

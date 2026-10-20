@@ -275,9 +275,102 @@ def test_demande_de_rappel(tel, session_admin):
     assert session_admin.scalar(select(Rappel.origine)) == "whatsapp"
 
 
-def test_message_vocal_ou_image(tel):
-    [menu] = tel.envoyer({"type": "audio", "audio": {"id": "123", "mime_type": "audio/ogg"}})
-    assert menu.corps.startswith("Je ne lis que les messages écrits")
+def test_image_non_lue(tel):
+    [menu] = tel.envoyer({"type": "image", "image": {"id": "123", "mime_type": "image/jpeg"}})
+    assert menu.corps.startswith("Je ne lis pas les images ni les vidéos")
+
+
+# --- Messages vocaux ---------------------------------------------------------------------------
+
+@pytest.fixture
+def voix(monkeypatch):
+    """Transcription simulée (le « son » est le texte), ouverte au français seulement."""
+    from coeur.comprehension.transcription import transcripteur
+    from coeur.config import parametres
+
+    monkeypatch.setattr(parametres(), "transcription", "simulation")
+    monkeypatch.setattr(parametres(), "transcription_langues", "fr")
+    transcripteur.cache_clear()
+    yield
+    transcripteur.cache_clear()
+
+
+def vocal(tel, paroles: bytes, media_id: str = None) -> list:
+    media_id = media_id or f"media.{next(COMPTEUR)}"
+    passerelle().deposer(media_id, paroles)
+    return tel.envoyer({"type": "audio", "audio": {"id": media_id, "mime_type": "audio/ogg; codecs=opus",
+                                                    "voice": True}})
+
+
+def test_vocal_sans_transcription_propose_un_rappel(tel):
+    [reponse] = tel.envoyer({"type": "audio", "audio": {"id": "123", "mime_type": "audio/ogg"}})
+    assert reponse.corps.startswith("Je ne comprends pas encore les messages vocaux")
+    assert reponse.boutons[0] == ("rappel", "Être rappelé")
+
+
+def test_vocal_compris_puis_confirme(tel, voix, exemples, session_admin):
+    session_admin.execute(update(Traduction).where(
+        Traduction.contenu_id == exemples["exemple-verifier-agent"]).values(
+        audio_question_url="https://medias.rgph.cd/q-agent-fr.mp3"))
+    session_admin.commit()
+    question, confirmation = vocal(tel, "Comment je reconnais un vrai agent recenseur ? "
+                                        "Mon numéro 0812345678".encode())
+    assert (question.type, question.lien) == ("audio", "https://medias.rgph.cd/q-agent-fr.mp3")
+    assert confirmation.corps == ("J'ai compris votre question ainsi : « Comment reconnaître "
+                                  "un vrai agent recenseur ? ». Est-ce bien cela ?")
+    assert confirmation.boutons == [("vocal:oui", "Oui"), ("vocal:non", "Non")]
+    # Rien n'est répondu ni journalisé avant la confirmation.
+    assert compter(session_admin, Interaction) == 0
+
+    texte, _menu = tel.toucher("vocal:oui", liste=False)
+    assert "badge officiel avec sa photo" in texte.corps
+    interaction = session_admin.scalar(select(Interaction))
+    assert (interaction.entree, interaction.resultat, interaction.contenu_id) == (
+        "voix", "reponse", exemples["exemple-verifier-agent"])
+    assert "0812345678" not in interaction.texte_masque
+    session_admin.expire_all()
+    assert session_admin.scalar(select(Conversation.attente)) is None
+    assert passerelle().medias == {}  # la voix n'est gardée nulle part
+
+
+def test_vocal_mal_compris(tel, voix, exemples, session_admin):
+    vocal(tel, b"Comment reconnaitre un vrai agent recenseur")
+    [reformuler] = tel.toucher("vocal:non", liste=False)
+    assert reformuler.corps.startswith("Désolé, j'ai mal compris")
+    assert reformuler.boutons[0] == ("rappel", "Être rappelé")
+    interaction = session_admin.scalar(select(Interaction))
+    assert (interaction.entree, interaction.resultat, interaction.motif_escalade) == (
+        "voix", "escalade", "vocal_non_confirme")
+
+
+def test_vocal_sans_reponse_validee(tel, voix, exemples, session_admin):
+    [escalade] = vocal(tel, b"Quel temps fera-t-il demain a Kisangani ?")
+    assert escalade.corps.startswith("Pas de réponse validée")
+    assert session_admin.scalar(select(Interaction.entree)) == "voix"
+
+
+def test_vocal_incompris_ou_trop_long(tel, voix, monkeypatch):
+    from coeur.config import parametres
+
+    [incompris] = vocal(tel, b"")
+    assert incompris.corps.startswith("Je n'ai pas compris votre message vocal")
+    monkeypatch.setattr(parametres(), "transcription_taille_max_ko", 1)
+    [trop_long] = vocal(tel, b"x" * 2000)
+    assert trop_long.corps.startswith("Je n'ai pas pu écouter votre message vocal")
+
+
+def test_vocal_dans_une_langue_pas_encore_ouverte(client, voix, exemples):
+    t = Telephone(client)
+    t.ecrire("Bonjour")
+    t.toucher("langue:ln")
+    [reponse] = vocal(t, b"Comment reconnaitre un vrai agent recenseur")
+    assert reponse.boutons[0][0] == "rappel"
+    assert len(passerelle().medias) == 1  # pas même téléchargé
+
+
+def test_confirmation_expiree(tel, voix):
+    [reponse] = tel.toucher("vocal:oui", liste=False)
+    assert reponse.corps.startswith("Votre précédente demande a expiré")
 
 
 def test_journal_sans_texte_ni_numero(tel, exemples, session_admin):
@@ -290,3 +383,17 @@ def test_journal_sans_texte_ni_numero(tel, exemples, session_admin):
     assert compter(session_admin, MessageWhatsapp, MessageWhatsapp.sens == "entrant") == 3
     assert compter(session_admin, MessageWhatsapp, MessageWhatsapp.sens == "sortant",
                    MessageWhatsapp.categorie == "service") >= 4
+
+
+def test_chiffres_de_la_voix(tel, voix, exemples, session_admin):
+    from zoneinfo import ZoneInfo
+
+    from coeur.whatsapp.statistiques import statistiques_whatsapp
+
+    for _ in range(2):
+        vocal(tel, b"Comment reconnaitre un vrai agent recenseur")
+        tel.toucher("vocal:oui", liste=False)
+    vocal(tel, b"Comment reconnaitre un vrai agent recenseur")
+    tel.toucher("vocal:non", liste=False)
+    chiffres = statistiques_whatsapp(session_admin, None, None, ZoneInfo("Africa/Kinshasa"), 1)
+    assert (chiffres["vocaux_confirmes"], chiffres["vocaux_refuses"]) == (2, 1)

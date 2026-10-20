@@ -12,6 +12,7 @@ class Interaction(Base):
     __tablename__ = "interactions"
     __table_args__ = (
         CheckConstraint("resultat IN ('reponse', 'escalade')", name="resultat"),
+        CheckConstraint("entree IN ('texte', 'voix')", name="entree"),
         {"schema": SCHEMA_COEUR},
     )
 
@@ -28,6 +29,8 @@ class Interaction(Base):
     # Empreinte HMAC du numéro (voir coeur.confidentialite).
     usager_empreinte: Mapped[str | None] = mapped_column(String(64))
     resultat: Mapped[str] = mapped_column(String(10))
+    # Question écrite ou dite (message vocal transcrit) : la qualité se mesure à part.
+    entree: Mapped[str] = mapped_column(String(8), server_default="texte")
     motif_escalade: Mapped[str | None] = mapped_column(String(40))
     # Pas de clé étrangère : l'historique reste lisible si un contenu est supprimé du CMS.
     contenu_id: Mapped[int | None]

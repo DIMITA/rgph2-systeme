@@ -56,6 +56,7 @@ MOTIFS = {
     "demande_humain": "Demande à parler à quelqu'un",
     "traduction_indisponible": "Traduction indisponible",
     "remontee_terrain": "Recueillie sur le terrain (kiosque, Ambassadeur)",
+    "vocal_non_confirme": "Message vocal mal compris (refusé par le citoyen)",
 }
 TYPES = {
     "menage_non_visite": "Ménage non visité",

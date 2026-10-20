@@ -7,7 +7,7 @@ prouvée par sa signature (X-Hub-Signature-256), calculée avec le secret de l'a
 import hmac
 import json
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
 from starlette.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
@@ -38,6 +38,7 @@ def verifier_abonnement(
 @routeur.post("/webhook")
 async def notification(
     request: Request,
+    taches: BackgroundTasks,
     session: Session = Depends(session_db),
     corpus: Corpus = Depends(corpus_courant),
     reglages: Parametres = Depends(parametres),
@@ -52,5 +53,6 @@ async def notification(
     except ValueError as erreur:
         raise HTTPException(400, "Corps illisible") from erreur
     # Le traitement (base, envoi à Meta) bloque : hors de la boucle asynchrone.
-    traites = await run_in_threadpool(service.recevoir, session, corpus, reglages, contenu)
+    traites = await run_in_threadpool(service.recevoir, session, corpus, reglages, contenu,
+                                      taches.add_task)
     return {"traites": traites}

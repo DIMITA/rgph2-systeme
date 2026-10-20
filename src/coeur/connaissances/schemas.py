@@ -11,6 +11,8 @@ MotifEscalade = Literal[
     "aucune_reponse_validee", "ambigu", "demande_humain", "traduction_indisponible",
     # Question recueillie hors ligne (kiosque, Ambassadeur) : jamais passée par le moteur.
     "remontee_terrain",
+    # Message vocal : le citoyen a répondu « Non » au sujet compris.
+    "vocal_non_confirme",
 ]
 
 

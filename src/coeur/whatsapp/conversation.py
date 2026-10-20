@@ -4,6 +4,10 @@ que l'USSD et le SMS (socle `mobile`).
 Chaque bouton ou ligne de liste porte un identifiant qui dit où l'on va (« q:12 »,
 « terr:passage:NKV-GOM »…) : la conversation n'a besoin de mémoire que lorsqu'une
 réponse libre est attendue (numéro de badge, quartier), voir `modeles.Conversation`.
+
+Les messages vocaux sont transcrits (`coeur.comprehension`), puis traités comme une
+question écrite, à une différence près : le citoyen confirme le sujet compris avant
+de recevoir la réponse.
 """
 
 from dataclasses import dataclass
@@ -11,11 +15,13 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
+from coeur.comprehension.transcription import langue_ouverte, transcripteur
 from coeur.config import Parametres
 from coeur.confidentialite.service import masquer_donnees_sensibles
 from coeur.connaissances import service as connaissances
 from coeur.connaissances.depot import Corpus
-from coeur.connaissances.schemas import ContenuSortie
+from coeur.connaissances.schemas import ContenuSortie, ReponseSortie
+from coeur.interactions import service as interactions
 from coeur.mobile import service as mobile
 from coeur.mobile.service import Usager
 from coeur.sms.analyse import normaliser
@@ -24,6 +30,7 @@ from coeur.territoires.modeles import Territoire
 from coeur.whatsapp import abonnements
 from coeur.whatsapp.messages import MAX_LIGNES, Boutons, Ligne, Liste, Media, Message, Texte
 from coeur.whatsapp.modeles import Conversation
+from coeur.whatsapp.passerelle import passerelle
 
 MOTS_STOP = {"STOP", "ARRET", "ARRETER", "DESABONNER"}
 SALUTATIONS = {"BONJOUR", "BONSOIR", "SALUT", "MENU", "AIDE", "MBOTE", "JAMBO", "HELLO", "START"}
@@ -33,9 +40,11 @@ PASSAGE, NON_VISITE, FAUX_AGENT = "passage", "nonvisite", "fauxagent"
 
 @dataclass(frozen=True)
 class Entree:
-    """Message reçu : texte écrit, choix dans une liste ou un bouton, ou autre (audio…)."""
+    """Message reçu : texte écrit, choix dans une liste ou un bouton, message vocal, ou
+    autre (image, vidéo…)."""
 
-    type: str  # « texte », « choix » ou « autre »
+    type: str  # « texte », « choix », « vocal » ou « autre »
+    # Texte, identifiant du choix, ou identifiant du média chez Meta (message vocal).
     valeur: str = ""
 
 
@@ -252,6 +261,8 @@ def choisir(ctx: Contexte, choix: str) -> list[Message]:
                "maximum": "wa_abonnements_max"}[resultat]
         return [bouton_menu(ctx, t[cle].format(territoire=territoire.nom,
                                                maximum=ctx.reglages.whatsapp_abonnements_max))]
+    if action == "vocal" and len(partie) == 2:
+        return confirmer_vocal(ctx, partie[1] == "oui")
     if action == "stop":
         return arreter(ctx)
     if action == "conseiller":
@@ -311,9 +322,77 @@ def ecrire(ctx: Contexte, texte: str) -> list[Message]:
         langue=u.langue, telephone=u.telephone)
     if resultat.contenu is not None:
         return reponse(ctx, resultat.contenu)
-    escalade = (t["wa_escalade"].format(numero=ctx.reglages.numero_vert)
-                if ctx.reglages.numero_vert else t["wa_escalade_sans_numero"])
-    return [Boutons(escalade, [("rappel", t["etre_rappele"]), ("menu", t["wa_bouton_menu"])])]
+    return escalade(ctx)
+
+
+def escalade(ctx: Contexte) -> list[Message]:
+    t = ctx.t
+    corps = (t["wa_escalade"].format(numero=ctx.reglages.numero_vert)
+             if ctx.reglages.numero_vert else t["wa_escalade_sans_numero"])
+    return [Boutons(corps, [("rappel", t["etre_rappele"]), ("menu", t["wa_bouton_menu"])])]
+
+
+# --- Messages vocaux ------------------------------------------------------------------------
+
+def _proposer_rappel(ctx: Contexte, cle: str) -> list[Message]:
+    t = ctx.t
+    return [Boutons(t[cle], [("rappel", t["etre_rappele"]), ("menu", t["wa_bouton_menu"])])]
+
+
+def _journaliser_vocal(ctx: Contexte, texte: str, reponse_: ReponseSortie) -> None:
+    interactions.enregistrer(
+        ctx.session, canal=ctx.usager.canal, texte=texte, langue_demandee=ctx.usager.langue,
+        territoire_code=None, usager_empreinte=ctx.usager.empreinte, reponse=reponse_,
+        entree="voix")
+
+
+def ecouter(ctx: Contexte, media_id: str) -> list[Message]:
+    """Message vocal : transcrit, puis le sujet compris est soumis au citoyen (Oui / Non).
+
+    La voix n'est gardée qu'en mémoire, le temps de la transcription. Rien ne répond
+    sans confirmation : une erreur de compréhension coûte un « Non », jamais une
+    fausse information officielle.
+    """
+    reglages = ctx.reglages
+    moteur = transcripteur()
+    if moteur is None or not langue_ouverte(ctx.usager.langue, reglages):
+        return _proposer_rappel(ctx, "wa_vocal_langue_fermee")
+    media = passerelle().telecharger(media_id, reglages.transcription_taille_max_ko * 1024)
+    if media is None:
+        return _proposer_rappel(ctx, "wa_vocal_illisible")
+    transcription = moteur.transcrire(media[0], media[1], ctx.usager.langue)
+    if transcription is None:
+        return _proposer_rappel(ctx, "wa_vocal_non_compris")
+    texte = transcription.texte[:500]
+    resultat = connaissances.repondre(ctx.corpus, texte, ctx.usager.langue, reglages)
+    if resultat.contenu is None:
+        _journaliser_vocal(ctx, texte, resultat)
+        return escalade(ctx)
+    contenu = resultat.contenu
+    attendre(ctx, "confirmation_vocale", contenu=contenu.contenu_id,
+             texte=masquer_donnees_sensibles(texte)[:500], score=resultat.score)
+    messages: list[Message] = []
+    if contenu.audio_question_url:
+        messages.append(Media("audio", contenu.audio_question_url))
+    messages.append(Boutons(ctx.t["wa_vocal_confirmer"].format(question=contenu.question),
+                            [("vocal:oui", ctx.t["wa_oui"]), ("vocal:non", ctx.t["wa_non"])]))
+    return messages
+
+
+def confirmer_vocal(ctx: Contexte, oui: bool) -> list[Message]:
+    attente, contexte = attente_en_cours(ctx)
+    if attente != "confirmation_vocale":
+        return menu(ctx, ctx.t["wa_attente_expiree"])
+    attendre(ctx, None)
+    contenu = connaissances.texte_servi(ctx.corpus, contexte["contenu"], ctx.usager.langue,
+                                        ctx.reglages.langue_par_defaut)
+    if oui and contenu is not None:
+        _journaliser_vocal(ctx, contexte["texte"], ReponseSortie(
+            type="reponse", contenu=contenu, score=contexte.get("score", 0.0)))
+        return reponse(ctx, contenu)
+    _journaliser_vocal(ctx, contexte["texte"], connaissances.escalade(
+        "vocal_non_confirme", contexte.get("score", 0.0)))
+    return _proposer_rappel(ctx, "wa_vocal_reformuler")
 
 
 def traiter(ctx: Contexte, entree: Entree, premier_contact: bool) -> list[Message]:
@@ -328,4 +407,6 @@ def traiter(ctx: Contexte, entree: Entree, premier_contact: bool) -> list[Messag
         return choisir(ctx, entree.valeur)
     if entree.type == "texte":
         return ecrire(ctx, entree.valeur.strip())
+    if entree.type == "vocal":
+        return ecouter(ctx, entree.valeur)
     return menu(ctx, ctx.t["wa_media_non_lu"])
