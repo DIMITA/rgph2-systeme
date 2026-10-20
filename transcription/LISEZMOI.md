@@ -72,8 +72,8 @@ Ce que ça dit, et ce que ça ne dit pas :
 - Le lingala et le kiswahili sont transcrits à peu près aussi bien que le français : environ une erreur pour six mots. Les erreurs portent surtout sur l'orthographe, les nombres et les noms propres (« parchemin » → « parchemen », « 24½ » → « 241 »). C'est peu gênant pour retrouver un sujet de la FAQ.
 - Ce sont des **phrases générales lues à voix haute, au calme**. De vraies questions spontanées, dans la rue, souvent en mélangeant lingala et français, donneront de moins bons résultats. Seule l'évaluation sur de vrais messages du recensement (plus bas) permet d'ouvrir une langue.
 - Le kiswahili de FLEURS est celui du Kenya, pas celui de l'est de la RDC.
-- **Kikongo et tshiluba ne sont pas couverts par ce modèle.** Sans autre modèle, ces deux langues restent en « proposition de rappel par un conseiller ». Le rapport de la mesure vérifie aussi les autres versions de MMS.
-- Sur processeur seul, le calcul prend environ un tiers de la durée de l'audio, un message à la fois : moins de 3 secondes d'audio transcrites par seconde. C'est assez pour un pilote, pas pour le pic.
+- **Kikongo et tshiluba ne sont couverts par aucune version de MMS** : ni `mms-1b-all`, ni `mms-1b-l1107`, ni `mms-1b-fl102` (codes `kng`, `ktu`, `kon`, `kwy`, `lua` cherchés dans leur vocabulaire, mesure du 20 octobre 2026). Ces deux langues restent en « proposition de rappel par un conseiller » tant qu'un autre modèle ouvert ne les couvre pas. Piste suivante : Omnilingual ASR de Meta (plus de 1 600 langues annoncées), dont la couverture et la qualité pour ces deux langues restent à vérifier de la même façon.
+- Sur processeur seul, le calcul prend entre un tiers et deux tiers de la durée de l'audio selon la machine (0,35 à 0,69 s par seconde d'audio sur deux mesures du même runner partagé), un message à la fois. C'est assez pour un pilote, pas pour le pic.
 
 ## Matériel
 

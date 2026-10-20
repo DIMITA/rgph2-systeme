@@ -203,9 +203,9 @@ Détails : [transcription/LISEZMOI.md](transcription/LISEZMOI.md).
 
 | Élément | Pourquoi | Comment l'obtenir |
 | --- | --- | --- |
-| **Serveur de calcul** | Sur processeur seul (4 cœurs), un message de 20 s se transcrit en environ 7 s, un message à la fois : assez pour un pilote, pas pour le pic | Un GPU NVIDIA hébergé en RDC, ou plusieurs instances. À dimensionner avec le volume de messages vocaux du pilote |
+| **Serveur de calcul** | Sur processeur seul (4 cœurs), un message de 20 s se transcrit en 7 à 14 s, un message à la fois : assez pour un pilote, pas pour le pic | Un GPU NVIDIA hébergé en RDC, ou plusieurs instances. À dimensionner avec le volume de messages vocaux du pilote |
 | **Le modèle** (`facebook/mms-1b-all`, environ 4 Go) | Transcrire | Téléchargé depuis Hugging Face au premier démarrage. Si le serveur n'a pas Internet : le télécharger ailleurs et le copier dans le volume `modeles_transcription` |
-| **Un modèle pour le kikongo et le tshiluba** | `mms-1b-all` ne les couvre pas (mesure du 20 octobre 2026) | Évaluer d'autres modèles ouverts (autres versions de MMS, Omnilingual ASR de Meta) ; sinon, ces langues restent en rappel par un conseiller |
+| **Un modèle pour le kikongo et le tshiluba** | Aucune version de MMS ne les couvre (`mms-1b-all`, `mms-1b-l1107`, `mms-1b-fl102`, mesure du 20 octobre 2026) | Évaluer un autre modèle ouvert (Omnilingual ASR de Meta) ; sinon, ou en attendant, ces langues restent en rappel par un conseiller. Aucun code à changer : le service accepte tout modèle qui respecte son contrat |
 | **Messages d'évaluation** | Ouvrir une langue sur des chiffres, pas sur une impression | Une centaine de vrais messages vocaux par langue, sur le recensement, avec la question attendue. Sources : Ambassadeurs, centre d'écoute, séances d'enregistrement |
 | **Variante du kikongo** | Le modèle et les traductions en dépendent | Décision du Ministère : kikongo ya leta (kituba) ou kikongo |
 
