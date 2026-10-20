@@ -1,0 +1,52 @@
+# Mesure du modèle de transcription (Meta MMS) sur de vrais enregistrements (Google FLEURS) :
+# lingala de RDC, kiswahili, français. Lourd (modèle de 4 Go) : seulement quand le service
+# de transcription change, ou à la demande. Le rapport est dans le résumé du run.
+name: Transcription (modèle réel)
+
+on:
+  push:
+    paths:
+      - "transcription/**"
+      - ".github/workflows/transcription.yml"
+  workflow_dispatch:
+    inputs:
+      nombre:
+        description: "Enregistrements par langue"
+        default: "40"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: transcription-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mesure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: Dépendances (PyTorch pour processeur, comme l'image du service)
+        run: |
+          pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.4,<3"
+          pip install -r transcription/requirements.txt huggingface_hub httpx
+          pip install -e .
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-mms-1b-all-fleurs-v1
+      - name: Mesure
+        run: |
+          python transcription/evaluer_fleurs.py --nombre "${{ inputs.nombre || '40' }}" --sortie rapport.md
+          cat rapport.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rapport-transcription
+          path: rapport.md
+          if-no-files-found: ignore
