@@ -222,7 +222,7 @@ Une fois prêt : `definir transcription service`, puis `definir transcription_la
 | Transit des messages WhatsApp par Meta (hors RDC) | Accepter ou non le canal WhatsApp | — |
 | Enregistrement des appels | Annonce, durée de 90 jours, accès des superviseurs | `conservation_enregistrements_jours` (en base) |
 | Texte des questions gardé dans le journal | Tout, seulement les questions sans réponse, ou rien | `conservation_texte_questions` (en base) |
-| Secret statistique avant toute publication externe | Valider la règle de masquage | `seuil_secret_statistique` (en base) |
+| Secret statistique avant toute publication externe | Valider la règle de masquage et la perturbation de ± 2 des effectifs publiés | `seuil_secret_statistique`, `perturbation_statistique` (en base) |
 | Audit de sécurité | Un audit avant l'ouverture de chaque canal numérique | — |
 | Licence du modèle de transcription (MMS : CC-BY-NC 4.0, pas d'usage commercial) | Compatibilité avec un service public exploité par un prestataire | Juriste de l'INS ou de l'UNFPA |
 | Intitulé du bloc-marque (*Institut national de la statistique, Bureau central du recensement*) | Validation par l'INS et, le cas échéant, par le Ministère de la Communication et Médias, garant de la charte | `src/coeur/charte/__init__.py` |

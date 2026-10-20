@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from sqlalchemy import update
+from sqlalchemy import text, update
 
 from coeur.interactions.modeles import Interaction
 from coeur.statistiques.schemas import Axe
@@ -152,3 +152,53 @@ def test_province_moins_ses_autres_territoires(client, exemples):
                    for l in stats(client, niveau="territoire")["interactions"]}
     assert territoires["KCE-MAT"] is None and territoires["KCE-MBZ"] is None
     assert territoires["NKV-GOM"] == 9
+
+
+def _fixer_cles(session_admin, cle: int):
+    """Clés de cellule imposées, pour des décalages connus (cle 0 : -2 ; cle 250 : +2)."""
+    from sqlalchemy import text
+
+    session_admin.execute(text(f"UPDATE coeur.interactions SET cle_cellule = {cle}"))
+    session_admin.commit()
+
+
+def test_difference_entre_deux_periodes_brouillee(client, exemples, session_admin, monkeypatch):
+    """Du 1er au 10 moins du 1er au 9 : le seul citoyen du 10 ne doit pas apparaître."""
+    from coeur.config import parametres
+
+    monkeypatch.setattr(parametres(), "perturbation_statistique", True)
+    for i in range(20):
+        poser(client, "NKV-GOM", f"08100000{i:02d}")
+    neuf_jours = datetime.now(timezone.utc) - timedelta(days=1)
+    session_admin.execute(update(Interaction).values(horodatage=neuf_jours))
+    session_admin.commit()
+    poser(client, "NKV-GOM", "0819999999")  # le seul du jour
+    # Clés connues : les 20 de la veille somment à 20 × 100 = 2000 ≡ 208 → +1 ;
+    # avec celui du jour (clé 40), 2040 ≡ 248 → +2.
+    session_admin.execute(text("UPDATE coeur.interactions SET cle_cellule = 100 "
+                               "WHERE horodatage < now() - interval '1 hour'"))
+    session_admin.execute(text("UPDATE coeur.interactions SET cle_cellule = 40 "
+                               "WHERE horodatage > now() - interval '1 hour'"))
+    session_admin.commit()
+    hier = neuf_jours.date()
+    aujourd_hui = datetime.now(timezone.utc).date()
+
+    def total(jusqu_a):
+        [ligne] = stats(client, depuis=hier.isoformat(), jusqu_a=jusqu_a.isoformat())["interactions"]
+        return ligne["nb_interactions"]
+
+    assert (total(hier), total(aujourd_hui)) == (21, 23)  # vrais effectifs : 20 et 21
+    assert total(aujourd_hui) - total(hier) != 1
+    # La même requête donne toujours le même chiffre.
+    assert total(aujourd_hui) == total(aujourd_hui)
+
+
+def test_cases_masquees_jamais_perturbees(client, activite, session_admin, monkeypatch):
+    from coeur.config import parametres
+
+    monkeypatch.setattr(parametres(), "perturbation_statistique", True)
+    _fixer_cles(session_admin, 250)
+    lignes = {l["unite"]: l for l in stats(client, niveau="province")["interactions"]}
+    assert lignes["KCE"]["nb_interactions"] is None
+    # Six enregistrements de clé 250 : 1500 ≡ 220 → +1.
+    assert lignes["NKV"]["nb_interactions"] == 7

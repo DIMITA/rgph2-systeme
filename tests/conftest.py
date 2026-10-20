@@ -30,6 +30,8 @@ os.environ.update(
         "SEUIL_CONFIANCE": "0.5",
         "MARGE_AMBIGUITE": "0.1",
         "SEUIL_SECRET_STATISTIQUE": "5",
+        # Chiffres exacts dans les tests ; la perturbation a ses propres tests.
+        "PERTURBATION_STATISTIQUE": "false",
         "NUMERO_VERT": "0800 000 000",
         "PORTAIL_QUESTIONS_PAR_MINUTE": "20",
         "PORTAIL_SIGNALEMENTS_PAR_HEURE": "5",

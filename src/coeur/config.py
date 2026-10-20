@@ -51,6 +51,10 @@ class Parametres(BaseSettings):
     marge_ambiguite: float = 0.1
     # Toute case statistique strictement inférieure à ce seuil (et non nulle) est masquée.
     seuil_secret_statistique: int = 5
+    # Perturbation des effectifs publiés (± 2, méthode de la clé de cellule) : empêche de
+    # retrouver une petite valeur par différence entre deux périodes. Désactivable pour
+    # les tests seulement.
+    perturbation_statistique: bool = True
     # Durée pendant laquelle les contenus publiés restent en mémoire avant relecture.
     cache_contenus_secondes: int = 60
     langue_par_defaut: str = "fr"

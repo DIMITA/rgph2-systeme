@@ -1,13 +1,17 @@
 """Agrégation des interactions et signalements par unité (pays, province ou territoire).
 
-Trois garde-fous :
+Quatre garde-fous :
 - la maille ne peut être que nationale, provinciale ou territoriale (type `Niveau`) ;
   la localité des signalements n'est jamais lue ici ;
 - secret statistique : tout effectif compris entre 1 et `seuil - 1` est masqué,
   et une ligne entière est masquée si son nombre d'interactions est sous le seuil ;
 - masquage complémentaire : une case masquée ne doit pas pouvoir se retrouver par
   différence avec un total publié (national moins somme des territoires, province
-  moins ses autres territoires…). Voir `masquage_complementaire`.
+  moins ses autres territoires…). Voir `masquage_complementaire` ;
+- perturbation par clé de cellule : chaque effectif publié est décalé de -2 à +2,
+  toujours de la même façon pour les mêmes enregistrements. La différence entre
+  deux périodes choisies (du 1er au 10 moins du 1er au 9) ne révèle donc plus une
+  petite valeur exacte. Voir `perturber`.
 """
 
 from collections import defaultdict
@@ -18,6 +22,7 @@ from itertools import combinations
 from sqlalchemy import ColumnElement, func, literal, select
 from sqlalchemy.orm import Session
 
+from coeur.config import parametres
 from coeur.interactions.modeles import Interaction
 from coeur.signalements.modeles import Signalement
 from coeur.statistiques.schemas import (
@@ -112,14 +117,41 @@ def groupes_de_cases(cles: Sequence[tuple[Hashable, ...]],
     return groupes
 
 
+# Méthode de la clé de cellule (« cell key method », ONS 2021, ABS) : chaque
+# enregistrement porte une clé aléatoire secrète entre 0 et 255 (colonne cle_cellule).
+# La clé d'une case est la somme des clés de ses enregistrements, modulo 256 ; elle
+# choisit le décalage dans ce tableau : -2 (10 %), -1 (20 %), 0 (40 %), +1 (20 %), +2 (10 %).
+DECALAGES = ((26, -2), (77, -1), (179, 0), (230, 1), (256, 2))
+# Chaque champ d'une même case reçoit un décalage différent.
+DECALAGE_PAR_CHAMP = {"nb_interactions": 0, "nb_escalades": 64, "nb_usagers_uniques": 128,
+                      "nb_signalements": 0}
+
+
+def perturber(valeur: int | None, cle: int, seuil: int) -> int | None:
+    """Effectif publié : décalé selon la clé de la case, jamais sous le seuil, zéro intact.
+
+    Les mêmes enregistrements donnent toujours la même clé, donc le même chiffre :
+    répéter la requête n'apprend rien. Deux périodes qui diffèrent d'un seul
+    enregistrement ont des clés sans rapport : leur différence est brouillée.
+    """
+    if not valeur:
+        return valeur
+    cle %= 256
+    decalage = next(d for borne, d in DECALAGES if cle < borne)
+    return max(valeur + decalage, seuil)
+
+
 def _masquer_tableau(lignes: Sequence[dict], champs: Sequence[str], cles: Sequence[tuple],
                      seuil: int, parents: dict | None = None,
                      ligne_masquee_si: str | None = None) -> list[dict]:
-    """Secret statistique sur un tableau : petits effectifs, puis masquage complémentaire.
+    """Secret statistique sur un tableau : petits effectifs, masquage complémentaire, puis
+    perturbation des effectifs publiés (si PERTURBATION_STATISTIQUE).
 
-    `ligne_masquee_si` : champ sous le seuil duquel toute la ligne est masquée.
+    `ligne_masquee_si` : champ sous le seuil duquel toute la ligne est masquée. Chaque
+    ligne porte « cle_cellule », la somme des clés de ses enregistrements.
     Renvoie des copies des lignes, valeurs masquées à None et « masque » renseigné.
     """
+    perturbation = parametres().perturbation_statistique
     groupes = groupes_de_cases(cles, parents)
     masques_par_champ = {}
     for champ in champs:
@@ -131,9 +163,12 @@ def _masquer_tableau(lignes: Sequence[dict], champs: Sequence[str], cles: Sequen
     resultat = []
     for i, ligne in enumerate(lignes):
         copie = dict(ligne)
+        cle = copie.pop("cle_cellule") or 0
         for champ in champs:
             if i in masques_par_champ[champ]:
                 copie[champ] = None
+            elif perturbation:
+                copie[champ] = perturber(copie[champ], cle + DECALAGE_PAR_CHAMP[champ], seuil)
         copie["masque"] = any(i in m for m in masques_par_champ.values())
         resultat.append(copie)
     return resultat
@@ -158,6 +193,7 @@ def calculer(
             func.count(),
             func.count().filter(Interaction.resultat == "escalade"),
             func.count(Interaction.usager_empreinte.distinct()),
+            func.sum(Interaction.cle_cellule),
         )
         .outerjoin(Territoire, Territoire.code == Interaction.territoire_code)
         .where(*bornes_journees(Interaction.horodatage, depuis, jusqu_a))
@@ -168,8 +204,8 @@ def calculer(
     parents = _provinces_des_territoires(session) if niveau is Niveau.TERRITOIRE else None
     brutes = [
         {"unite": unite, "canal": canal, "langue": langue, "nb_interactions": total,
-         "nb_escalades": escalades, "nb_usagers_uniques": usagers}
-        for unite, canal, langue, total, escalades, usagers in lignes_i
+         "nb_escalades": escalades, "nb_usagers_uniques": usagers, "cle_cellule": cle}
+        for unite, canal, langue, total, escalades, usagers, cle in lignes_i
     ]
     interactions = [
         LigneInteractions(**ligne)
@@ -180,14 +216,14 @@ def calculer(
 
     unite_s = _unite(niveau, Signalement.territoire_code).label("unite")
     lignes_s = session.execute(
-        select(unite_s, Signalement.type, func.count())
+        select(unite_s, Signalement.type, func.count(), func.sum(Signalement.cle_cellule))
         .outerjoin(Territoire, Territoire.code == Signalement.territoire_code)
         .where(*bornes_journees(Signalement.horodatage, depuis, jusqu_a))
         .group_by(unite_s, Signalement.type)
         .order_by(unite_s, Signalement.type)
     ).all()
-    brutes_s = [{"unite": unite, "type": type_, "nb_signalements": n}
-                for unite, type_, n in lignes_s]
+    brutes_s = [{"unite": unite, "type": type_, "nb_signalements": n, "cle_cellule": cle}
+                for unite, type_, n, cle in lignes_s]
     signalements = [
         LigneSignalements(**ligne)
         for ligne in _masquer_tableau(brutes_s, ("nb_signalements",),
@@ -226,6 +262,7 @@ def repartir_interactions(
             func.count(),
             func.count().filter(Interaction.resultat == "escalade"),
             func.count(Interaction.usager_empreinte.distinct()),
+            func.sum(Interaction.cle_cellule),
         )
         .select_from(Interaction)
         .outerjoin(Territoire, Territoire.code == Interaction.territoire_code)
@@ -234,7 +271,8 @@ def repartir_interactions(
         .order_by(func.count().desc(), valeur)
     ).all()
     brutes = [{"valeur": v, "nb_interactions": total, "nb_escalades": esc,
-               "nb_usagers_uniques": usagers} for v, total, esc, usagers in lignes]
+               "nb_usagers_uniques": usagers, "cle_cellule": cle}
+              for v, total, esc, usagers, cle in lignes]
     return [Effectifs(**ligne) for ligne in _masquer_tableau(
         brutes, CHAMPS_INTERACTIONS, [(l["valeur"],) for l in brutes], seuil,
         _parents(session, axe), ligne_masquee_si="nb_interactions")]
@@ -248,14 +286,14 @@ def repartir_signalements(
         raise ValueError("Les signalements n'ont pas de langue")
     valeur = (_expression_axe(axe, Signalement) if axe else literal(UNITE_NATIONALE)).label("v")
     lignes = session.execute(
-        select(valeur, func.count())
+        select(valeur, func.count(), func.sum(Signalement.cle_cellule))
         .select_from(Signalement)
         .outerjoin(Territoire, Territoire.code == Signalement.territoire_code)
         .where(*bornes_journees(Signalement.horodatage, depuis, jusqu_a, fuseau))
         .group_by(valeur)
         .order_by(func.count().desc(), valeur)
     ).all()
-    brutes = [{"valeur": v, "nb_signalements": n} for v, n in lignes]
+    brutes = [{"valeur": v, "nb_signalements": n, "cle_cellule": cle} for v, n, cle in lignes]
     return [Effectifs(**ligne) for ligne in _masquer_tableau(
         brutes, ("nb_signalements",), [(l["valeur"],) for l in brutes], seuil,
         _parents(session, axe))]

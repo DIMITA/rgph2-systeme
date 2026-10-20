@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, String, func
+from sqlalchemy import (
+    BigInteger, CheckConstraint, DateTime, ForeignKey, SmallInteger, String, func, text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from coeur.base import SCHEMA_COEUR, Base
@@ -18,6 +20,11 @@ class Signalement(Base):
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    # Clé aléatoire secrète (0-255) pour la perturbation des statistiques
+    # (statistiques.service.perturber). Jamais exposée.
+    cle_cellule: Mapped[int] = mapped_column(
+        SmallInteger, server_default=text("floor(random() * 256)::smallint")
+    )
     horodatage: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )

@@ -46,3 +46,25 @@ def test_groupes_par_province():
     parents = {"KCE-MAT": "KCE", "KCE-MBZ": "KCE", "NKV-GOM": "NKV"}
     groupes = groupes_de_cases(cles, parents)
     assert [0, 1, 2] in groupes and [0, 1] in groupes
+
+
+def test_perturbation_deterministe_et_bornee():
+    from collections import Counter
+
+    from coeur.statistiques.service import perturber
+
+    # Même clé, même résultat : répéter la requête n'apprend rien.
+    assert perturber(40, 123, SEUIL) == perturber(40, 123, SEUIL)
+    decalages = Counter(perturber(40, cle, SEUIL) - 40 for cle in range(256))
+    assert set(decalages) == {-2, -1, 0, 1, 2}
+    # 10 % / 20 % / 40 % / 20 % / 10 %, à l'arrondi près sur 256 clés.
+    assert decalages[0] == 102 and decalages[-2] == 26 and decalages[2] == 26
+    # Clés au-delà de 255 : modulo 256 (somme des clés des enregistrements).
+    assert perturber(40, 123 + 256 * 7, SEUIL) == perturber(40, 123, SEUIL)
+
+
+def test_perturbation_ne_publie_ni_petit_effectif_ni_faux_zero():
+    from coeur.statistiques.service import perturber
+
+    assert all(perturber(SEUIL, cle, SEUIL) >= SEUIL for cle in range(256))
+    assert perturber(0, 3, SEUIL) == 0 and perturber(None, 3, SEUIL) is None

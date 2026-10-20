@@ -67,6 +67,6 @@
   {{ repartition("Signalements par " ~ niveau, repartitions.signalements_geo, "nb_signalements", noms, seuil, maximum) }}
 </div>
 
-<p class="note">« masqué » : effectif inférieur à {{ seuil }}, ou masqué pour qu'on ne puisse pas le déduire des totaux (secret statistique). Aucune donnée n'est présentée à une maille plus fine que le territoire.
+<p class="note">« masqué » : effectif inférieur à {{ seuil }}, ou masqué pour qu'on ne puisse pas le déduire des totaux (secret statistique). Les effectifs publiés sont décalés au hasard de 2 au plus, toujours de la même façon pour les mêmes données : un total peut différer de la somme de ses lignes. Aucune donnée n'est présentée à une maille plus fine que le territoire.
 « Non renseigné » : le canal n'a pas indiqué de territoire.</p>
 {% endblock %}
