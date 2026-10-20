@@ -41,7 +41,7 @@ class Parametres(BaseSettings):
     # Portail web
     # Vide tant que le numéro n'est pas attribué : le portail n'en affiche alors aucun.
     numero_vert: str = ""
-    # Limites par adresse IP (gardées en mémoire, jamais enregistrées).
+    # Limites par adresse IP (comptées en base, adresse jamais enregistrée en clair).
     portail_questions_par_minute: int = 20
     portail_signalements_par_heure: int = 5
 

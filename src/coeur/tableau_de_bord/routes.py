@@ -75,7 +75,7 @@ PILOTAGE = exiger("pilotage")
 @lru_cache
 def limiteur_connexion() -> LimiteurDebit:
     """10 tentatives de connexion par quart d'heure et par adresse IP."""
-    return LimiteurDebit(10, 15 * 60)
+    return LimiteurDebit("connexion", 10, 15 * 60)
 
 
 def _date(texte: str | None) -> date | None:

@@ -53,7 +53,7 @@ def base_propre(moteur_admin):
                 "coeur.appels, coeur.rappels, coeur.enregistrements, coeur.ecoutes, "
                 "coeur.badges, coeur.consultations, coeur.sms, coeur.preferences_langue, "
                 "calendrier_passages, coeur.conversations_whatsapp, coeur.whatsapp_messages, "
-                "coeur.abonnements_whatsapp, "
+                "coeur.abonnements_whatsapp, coeur.compteurs_debit, coeur.memoire_courte, "
                 "coeur.territoires, coeur.provinces RESTART IDENTITY CASCADE"
             )
         )

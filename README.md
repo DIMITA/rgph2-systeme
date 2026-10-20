@@ -268,7 +268,7 @@ Le portail est le canal « web ». Il fait partie du cœur et appelle directemen
 - Les textes affichés sont échappés, et le script n'utilise jamais `innerHTML`.
 - Une politique CSP stricte n'autorise que les ressources du site lui-même.
 - Le débit est limité par adresse IP : 20 questions par minute et 5 signalements par heure, réglables.
-- Les adresses IP restent en mémoire le temps de la fenêtre de comptage et ne sont jamais enregistrées.
+- Les adresses IP sont comptées en base sous forme d'empreinte (HMAC), jamais en clair, dans une table non journalisée effacée par les tâches périodiques.
 
 > **Derrière un proxy HTTPS**, renseigner `FORWARDED_ALLOW_IPS` avec l'adresse du proxy. Sinon, toutes les requêtes semblent venir du proxy, et l'ensemble des citoyens partage la même limite de débit.
 
@@ -608,13 +608,12 @@ Penser aux droits des rôles (voir `_droits()` dans `migrations/versions/0001_sc
 - **Territoires** : le fichier fourni est un échantillon aux codes provisoires.
 - **Hébergement** : le lieu d'hébergement en RDC reste à décider (centre de données local ou cloud avec région locale). La pile Docker convient aux deux options.
 - **Interface du portail** : disponible en français et en lingala (proposition à relire). Les autres langues affichent l'interface en français tant que leur fichier `textes/<langue>.json` n'est pas fourni.
-- **Limite de débit** : elle est comptée par processus. Avec plusieurs processus ou serveurs, la limite effective est multipliée d'autant. Un compteur partagé (Redis) serait à prévoir si la charge l'exige.
+- **Limites de débit et anti-doublons** : comptés dans PostgreSQL (tables `UNLOGGED` `coeur.compteurs_debit` et `coeur.memoire_courte`), donc partagés par tous les processus et serveurs. Chaque contrôle coûte un aller-retour à la base ; si la charge du pic le rend trop coûteux, `coeur/limiteur.py` est le seul fichier à changer (Redis par exemple). La fenêtre glissante est estimée à partir de deux fenêtres fixes, et une requête refusée compte aussi : insister prolonge le blocage.
 - **Messages vocaux** : tant qu'ils ne sont pas enregistrés, une voix de synthèse française provisoire les remplace, y compris pour les autres langues.
 - **Postes partagés** : un poste ne sert qu'à un agent à la fois. Un second agent qui prend le même poste déconnecte le premier.
 - **Rappel resté « en cours »** : si l'agent qui l'a pris ne le clôture pas, le rappel reste bloqué jusqu'à l'expiration automatique (7 jours). L'administrateur peut le clôturer depuis son propre compte agent.
 - **Codecs** : postes et opérateur en G.711 (A-law, µ-law), sans transcodage. Asterisk n'a pas de module Opus libre.
 - **Sessions USSD rejouées** : le menu est recalculé à chaque échange à partir de la saisie cumulée. Il ne dépend donc d'aucune mémoire de session, et une demande répétée par la passerelle ne crée pas de doublon pendant 5 minutes. Ce format est celui de la plupart des agrégateurs ; un opérateur qui n'envoie que la dernière saisie demandera une petite route d'adaptation.
-- **Plafonds USSD et SMS** : le plafond de vérifications de badge est compté en mémoire, comme la limite de débit du portail. Le plafond de SMS, lui, est compté en base.
 - **Textes USSD et SMS** : en français, avec une proposition en lingala à relire. Les autres langues affichent les menus en français, mais servent les réponses validées dans leur langue.
 - **Charte dans Directus** : la page de connexion de Directus garde sa propre police, car Directus ne permet pas de la changer sur ses pages publiques. Le reste de l'application est en Cooper Hewitt.
 - **WhatsApp, premier message** : il reçoit l'accueil et le choix de la langue. Une question posée dans ce premier message n'est pas traitée : le citoyen la repose une fois sa langue choisie.

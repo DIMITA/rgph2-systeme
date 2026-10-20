@@ -2,8 +2,6 @@
 
 import hashlib
 import hmac
-import threading
-import time
 
 from sqlalchemy.orm import Session
 
@@ -11,6 +9,7 @@ from coeur.commun import Canal
 from coeur.config import Parametres
 from coeur.confidentialite.service import normaliser_telephone
 from coeur.connaissances.depot import Corpus
+from coeur.limiteur import MemoireCourte
 from coeur.mobile import service as mobile
 from coeur.whatsapp.conversation import Contexte, Entree, traiter
 from coeur.whatsapp.envoi import envoyer
@@ -21,27 +20,7 @@ from coeur.whatsapp.modeles import MessageWhatsapp
 DUREE_MEMOIRE = 3600
 
 
-class DejaVus:
-    def __init__(self) -> None:
-        self._ids: dict[str, float] = {}
-        self._verrou = threading.Lock()
-
-    def nouveau(self, identifiant: str) -> bool:
-        with self._verrou:
-            maintenant = time.monotonic()
-            for i in [i for i, t in self._ids.items() if maintenant - t > DUREE_MEMOIRE]:
-                del self._ids[i]
-            if identifiant in self._ids:
-                return False
-            self._ids[identifiant] = maintenant
-            return True
-
-    def vider(self) -> None:
-        with self._verrou:
-            self._ids.clear()
-
-
-deja_vus = DejaVus()
+deja_vus = MemoireCourte("whatsapp", DUREE_MEMOIRE)
 
 
 def signature_valide(corps: bytes, signature: str | None, secret: str) -> bool:

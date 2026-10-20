@@ -6,13 +6,14 @@ from coeur.calendrier.modeles import Passage
 from coeur.centre_appels.modeles import Appel, Ecoute, Enregistrement, Rappel
 from coeur.connaissances.modeles import Contenu, Formulation, Langue, Traduction
 from coeur.interactions.modeles import Interaction
+from coeur.limiteur import CompteurDebit, Marque
 from coeur.mobile.modeles import Consultation, MessageSms, PreferenceLangue
 from coeur.signalements.modeles import Signalement
 from coeur.territoires.modeles import Province, Territoire
 from coeur.whatsapp.modeles import Abonnement, Conversation, MessageWhatsapp
 
 __all__ = [
-    "Abonnement", "Appel", "Badge", "Base", "Consultation", "Contenu", "Conversation", "Ecoute", "Enregistrement", "Formulation",
-    "Interaction", "Langue", "MessageSms", "MessageWhatsapp", "Passage", "PreferenceLangue", "Province", "Rappel",
+    "Abonnement", "Appel", "Badge", "Base", "CompteurDebit", "Consultation", "Contenu", "Conversation", "Ecoute", "Enregistrement", "Formulation",
+    "Interaction", "Langue", "Marque", "MessageSms", "MessageWhatsapp", "Passage", "PreferenceLangue", "Province", "Rappel",
     "Signalement", "Territoire", "Traduction",
 ]
