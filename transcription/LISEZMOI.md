@@ -53,6 +53,28 @@ POST /transcrire?langue=ln      corps : fichier audio (ogg/opus, mp3, wav, m4a�
 → 422 langue non prise en charge ou audio illisible ; 413 audio trop long (DUREE_MAX)
 ```
 
+## Mesures
+
+Workflow `.github/workflows/transcription.yml` (script `evaluer_fleurs.py`) : le vrai modèle, sur des phrases lues par des locuteurs natifs (Google FLEURS, jeu de test), converties au format des messages vocaux WhatsApp (Ogg/Opus 16 kb/s), envoyées au service HTTP réel. Processeur seul, 4 cœurs.
+
+Mesure du 20 octobre 2026, `facebook/mms-1b-all`, 40 enregistrements par langue :
+
+| Langue | Taux d'erreur de mots (moyen / médian) | Durée moyenne | Calcul moyen | Calcul par seconde d'audio |
+| --- | --- | --- | --- | --- |
+| Français | 16 % / 15 % | 10 s | 3,6 s | 0,36 s |
+| Lingala (RDC) | 18 % / 17 % | 20 s | 7,2 s | 0,36 s |
+| Kiswahili (Kenya) | 16 % / 14 % | 14,5 s | 5,1 s | 0,35 s |
+| Kikongo | **pas d'adaptateur dans le modèle** (`kng`, `ktu`, `kon`, `kwy`) | | | |
+| Tshiluba | **pas d'adaptateur dans le modèle** (`lua`) | | | |
+
+Ce que ça dit, et ce que ça ne dit pas :
+
+- Le lingala et le kiswahili sont transcrits à peu près aussi bien que le français : environ une erreur pour six mots. Les erreurs portent surtout sur l'orthographe, les nombres et les noms propres (« parchemin » → « parchemen », « 24½ » → « 241 »). C'est peu gênant pour retrouver un sujet de la FAQ.
+- Ce sont des **phrases générales lues à voix haute, au calme**. De vraies questions spontanées, dans la rue, souvent en mélangeant lingala et français, donneront de moins bons résultats. Seule l'évaluation sur de vrais messages du recensement (plus bas) permet d'ouvrir une langue.
+- Le kiswahili de FLEURS est celui du Kenya, pas celui de l'est de la RDC.
+- **Kikongo et tshiluba ne sont pas couverts par ce modèle.** Sans autre modèle, ces deux langues restent en « proposition de rappel par un conseiller ». Le rapport de la mesure vérifie aussi les autres versions de MMS.
+- Sur processeur seul, le calcul prend environ un tiers de la durée de l'audio, un message à la fois : moins de 3 secondes d'audio transcrites par seconde. C'est assez pour un pilote, pas pour le pic.
+
 ## Matériel
 
 Sur processeur, la transcription d'un message de 30 secondes prend plusieurs secondes, et le service traite **un message à la fois** (l'adaptateur de langue est partagé). C'est suffisant pour un pilote et pour les évaluations, **pas pour le pic de mai-juin 2027**. Pour le pic, il faut un **GPU** (voir le commentaire dans `docker-compose.yml` et le `Dockerfile`), ou plusieurs instances. Le dimensionnement dépend du volume de messages vocaux attendu : à mesurer pendant le pilote (tableau de bord, section WhatsApp).
