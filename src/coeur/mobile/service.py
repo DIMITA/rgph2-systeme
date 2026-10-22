@@ -160,7 +160,7 @@ def consulter_passage(session: Session, u: Usager, territoire: Territoire) -> st
 
 @lru_cache
 def limiteur_badges() -> LimiteurDebit:
-    return LimiteurDebit(parametres().badges_verifications_par_heure, 3600)
+    return LimiteurDebit("badges", parametres().badges_verifications_par_heure, 3600)
 
 
 class TropDeVerifications(Exception):

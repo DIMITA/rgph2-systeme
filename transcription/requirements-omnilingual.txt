@@ -1,0 +1,5 @@
+# Moteur « omnilingual » (Meta Omnilingual ASR, fairseq2). fairseq2 de PyPI exige une
+# PyTorch CUDA : sur processeur, installer avec l'index de Meta (voir le Dockerfile).
+omnilingual-asr==0.1.0
+# fairseq2 garde numpy 1.x ; les pyarrow récents exigent numpy 2.
+pyarrow>=20,<21

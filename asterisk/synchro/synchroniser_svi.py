@@ -29,8 +29,10 @@ SONS = "/var/lib/asterisk/sounds"
 
 # --- Génération du dialplan (fonction pure, testée) -----------------------------------
 
-def generer_dialplan(langues: list[dict], menus: dict[str, list[tuple[int, int]]]) -> str:
-    """langues : [{"code": "fr", "touche": 1}, …] ; menus : code → [(touche, contenu_id), …]."""
+def generer_dialplan(langues: list[dict], menus: dict[str, list[tuple[int, int]]],
+                     vocal: frozenset[str] = frozenset()) -> str:
+    """langues : [{"code": "fr", "touche": 1}, …] ; menus : code → [(touche, contenu_id), …] ;
+    vocal : langues où le citoyen peut dire sa question (touche 9, contexte question-vocale)."""
     lignes = ["; Généré automatiquement par synchroniser_svi.py — ne pas modifier.", ""]
     annonces = "&".join(f"{SONS}/{l['code']}/rgph/choix_langue" for l in langues)
     lignes += [
@@ -59,11 +61,18 @@ def generer_dialplan(langues: list[dict], menus: dict[str, list[tuple[int, int]]
     for l in langues:
         code, elements = l["code"], menus.get(l["code"], [])
         lignes.append(f"[svi-{code}]")
+        if not elements and code in vocal:
+            # Aucune réponse au menu, mais la question peut être dite.
+            lignes += ["exten => s,1,Set(ESSAIS=0)",
+                       " same => n(menu),Goto(question-vocale,s,1)", ""]
+            continue
         if not elements:
             lignes += ["exten => s,1,Playback(rgph/aucune_reponse_langue)",
                        " same => n,Goto(file-attente,s,1)", ""]
             continue
         annonces = "&".join(f"rgph/touche_{t}&rgph/svi/q-{cid}" for t, cid in elements)
+        if code in vocal:
+            annonces += "&rgph/question_proposer"
         lignes += [
             "exten => s,1,Set(ESSAIS=0)",
             " same => n(menu),Background(rgph/svi_intro)",
@@ -76,6 +85,8 @@ def generer_dialplan(langues: list[dict], menus: dict[str, list[tuple[int, int]]
                 f" same => n,Playback(rgph/svi/r-{cid})",
                 " same => n,Goto(s,menu)",
             ]
+        if code in vocal:
+            lignes.append("exten => 9,1,Goto(question-vocale,s,1)")
         lignes += [
             "exten => 0,1,Goto(file-attente,s,1)",
             "exten => t,1,Set(ESSAIS=$[${ESSAIS} + 1])",
@@ -118,6 +129,35 @@ def preparer(destination: Path, url: str | None, texte: str, francais: bool,
     return True
 
 
+def preparer_langue(dossier: Path, manifeste: dict, synthese: bool, menu: list[dict],
+                    catalogue: list[dict]) -> tuple[list[tuple[int, int]], set[str]]:
+    """Audios d'une langue : ceux du menu (touches renumérotées sans trou si un élément
+    n'a pas d'audio), puis ceux du catalogue, que la question dite peut proposer.
+    Renvoie les touches du menu et les fichiers à garder."""
+    prets: dict[int, bool] = {}
+    utilises = {"manifeste.json"}
+
+    def audios(el: dict) -> bool:
+        cid, francais = el["contenu_id"], el["langue"] == "fr"
+        if cid not in prets:
+            q, r = dossier / f"q-{cid}.wav", dossier / f"r-{cid}.wav"
+            prets[cid] = (
+                preparer(q, el["audio_question_url"], el["question"], francais, manifeste,
+                         synthese)
+                and preparer(r, el["audio_url"], el["reponse"], francais, manifeste, synthese))
+            if prets[cid]:
+                utilises.update((q.name, r.name))
+        return prets[cid]
+
+    elements = []
+    for el in menu:
+        if audios(el):
+            elements.append((len(elements) + 1, el["contenu_id"]))
+    for el in catalogue:
+        audios(el)
+    return elements, utilises
+
+
 def lire_menu() -> dict:
     requete = urllib.request.Request(
         os.environ.get("API_URL", "http://api:8000") + "/v1/appels/svi",
@@ -143,15 +183,9 @@ def synchroniser() -> None:
         dossier.mkdir(parents=True, exist_ok=True)
         chemin_manifeste = dossier / "manifeste.json"
         manifeste = json.loads(chemin_manifeste.read_text()) if chemin_manifeste.exists() else {}
-        elements, utilises = [], {"manifeste.json"}
-        for el in menu["menus"].get(code, []):
-            cid, francais = el["contenu_id"], el["langue"] == "fr"
-            q, r = dossier / f"q-{cid}.wav", dossier / f"r-{cid}.wav"
-            if (preparer(q, el["audio_question_url"], el["question"], francais, manifeste, synthese)
-                    and preparer(r, el["audio_url"], el["reponse"], francais, manifeste, synthese)):
-                # Touches renumérotées sans trou si un élément n'a pas d'audio.
-                elements.append((len(elements) + 1, cid))
-                utilises |= {q.name, r.name}
+        elements, utilises = preparer_langue(dossier, manifeste, synthese,
+                                             menu["menus"].get(code, []),
+                                             menu.get("catalogue", {}).get(code, []))
         for ancien in dossier.iterdir():
             if ancien.name not in utilises:
                 ancien.unlink()
@@ -159,7 +193,7 @@ def synchroniser() -> None:
         chemin_manifeste.write_text(json.dumps(manifeste, indent=1))
         menus[code] = elements
 
-    texte = generer_dialplan(menu["langues"], menus)
+    texte = generer_dialplan(menu["langues"], menus, frozenset(menu.get("vocal", [])))
     ancien = FICHIER_DIALPLAN.read_text() if FICHIER_DIALPLAN.exists() else ""
     if texte != ancien:
         FICHIER_DIALPLAN.write_text(texte)

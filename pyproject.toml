@@ -24,8 +24,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
-# Vérification de la console des agents dans un vrai navigateur (outils/verifier_console_agent.py).
+# numpy : tests du service de transcription (transcription/serveur.py).
+dev = ["pytest>=8", "ruff==0.17.1", "numpy>=1.26"]
+# Vérifications dans un vrai navigateur : console des agents (outils/verifier_console_agent.py)
+# et application de terrain hors ligne (tests/integration/test_terrain_navigateur.py).
 e2e = ["playwright>=1.48"]
 
 [tool.setuptools.packages.find]
@@ -37,7 +39,18 @@ coeur = [
     "tableau_de_bord/gabarits/*.html", "tableau_de_bord/statique/*",
     "mobile/textes/*.json", "simulateur/gabarits/*.html",
     "charte/gabarits/*.html", "charte/statique/*", "charte/sources/*",
+    "terrain/statique/*", "terrain/textes/*.json",
 ]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+# Erreurs (pyflakes), séquences d'échappement invalides et pièges courants (bugbear).
+# B008 écarté : Depends(), Form()… en valeur par défaut est l'usage de FastAPI.
+select = ["E9", "F", "W6", "B"]
+ignore = ["B008"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

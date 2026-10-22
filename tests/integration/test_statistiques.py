@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from sqlalchemy import update
+from sqlalchemy import text, update
 
 from coeur.interactions.modeles import Interaction
 from coeur.statistiques.schemas import Axe
@@ -23,9 +23,11 @@ def poser(client, territoire, telephone, entetes=WEB):
 
 @pytest.fixture
 def activite(client, exemples):
-    # Goma : 6 questions de 6 usagers différents. Matadi : 2 questions.
+    # Goma : 6 questions de 6 usagers différents. Kinshasa : 5. Matadi : 2.
     for i in range(6):
         poser(client, "NKV-GOM", f"08100000{i:02d}")
+    for i in range(5):
+        poser(client, "KIN-V", f"08300000{i:02d}")
     poser(client, "KCE-MAT", "0820000001")
     poser(client, "KCE-MAT", "0820000002")
     for _ in range(3):
@@ -57,8 +59,8 @@ def test_niveau_national(client, activite):
     assert resultat["seuil_secret"] == 5
     [ligne] = resultat["interactions"]
     assert ligne["unite"] == "RDC"
-    assert ligne["nb_interactions"] == 8
-    assert ligne["nb_usagers_uniques"] == 8
+    assert ligne["nb_interactions"] == 13
+    assert ligne["nb_usagers_uniques"] == 13
     assert ligne["nb_escalades"] == 0
 
 
@@ -67,12 +69,15 @@ def test_niveau_province(client, activite):
     assert lignes["NKV"]["nb_interactions"] == 6
     assert lignes["KCE"]["masque"] is True
     assert lignes["KCE"]["nb_interactions"] is None
+    # Masquage complémentaire : sinon KCE = 13 (national) - 6 - 5.
+    assert lignes["KIN"]["nb_interactions"] is None
 
 
 def test_niveau_territoire_avec_secret_statistique(client, activite):
     lignes = {l["unite"]: l for l in stats(client, niveau="territoire")["interactions"]}
     assert lignes["NKV-GOM"]["nb_interactions"] == 6
     assert lignes["NKV-GOM"]["masque"] is False
+    assert lignes["KIN-V"]["nb_interactions"] is None
     assert lignes["KCE-MAT"] == {
         "unite": "KCE-MAT", "canal": "web", "langue": "fr", "nb_interactions": None,
         "nb_escalades": None, "nb_usagers_uniques": None, "masque": True,
@@ -95,20 +100,21 @@ def test_filtre_par_dates(client, activite, session_admin):
     session_admin.commit()
     hier = (datetime.now(timezone.utc) - timedelta(days=1)).date()
     lignes = stats(client, niveau="territoire", depuis=hier.isoformat())["interactions"]
-    assert {l["unite"] for l in lignes} == {"KCE-MAT"}
+    assert {l["unite"] for l in lignes} == {"KCE-MAT", "KIN-V"}
 
 
 def test_repartition_par_axe(session_admin, activite):
     [total] = repartir_interactions(session_admin, None, None, None, 5)
-    assert (total.valeur, total.nb_interactions, total.nb_usagers_uniques) == ("RDC", 8, 8)
+    assert (total.valeur, total.nb_interactions, total.nb_usagers_uniques) == ("RDC", 13, 13)
 
     lignes = repartir_interactions(session_admin, Axe.TERRITOIRE, None, None, 5)
     par_territoire = {e.valeur: e for e in lignes}
     assert par_territoire["NKV-GOM"].nb_interactions == 6
     assert par_territoire["KCE-MAT"].masque and par_territoire["KCE-MAT"].nb_interactions is None
+    assert par_territoire["KIN-V"].nb_interactions is None
 
     [web] = repartir_interactions(session_admin, Axe.CANAL, None, None, 5)
-    assert (web.valeur, web.nb_interactions) == ("web", 8)
+    assert (web.valeur, web.nb_interactions) == ("web", 13)
 
     [rumeurs] = repartir_signalements(session_admin, Axe.TYPE, None, None, 5)
     assert (rumeurs.valeur, rumeurs.nb_signalements, rumeurs.masque) == ("rumeur", None, True)
@@ -130,3 +136,69 @@ def test_totaux_nationaux(session_admin, activite):
 def test_repartitions_sur_base_vide(session_admin):
     assert repartir_interactions(session_admin, None, None, None, 5) == []
     assert repartir_signalements(session_admin, None, None, None, 5) == []
+
+
+def test_province_moins_ses_autres_territoires(client, exemples):
+    """Kongo-Central publié (7) : Matadi (2) ne doit pas se déduire de Mbanza-Ngungu (5)."""
+    for i in range(5):
+        poser(client, "KCE-MBZ", f"08400000{i:02d}")
+    for i in range(2):
+        poser(client, "KCE-MAT", f"08500000{i:02d}")
+    for i in range(9):
+        poser(client, "NKV-GOM", f"08600000{i:02d}")
+    provinces = {l["unite"]: l["nb_interactions"] for l in stats(client, niveau="province")["interactions"]}
+    assert provinces == {"KCE": 7, "NKV": 9}
+    territoires = {l["unite"]: l["nb_interactions"]
+                   for l in stats(client, niveau="territoire")["interactions"]}
+    assert territoires["KCE-MAT"] is None and territoires["KCE-MBZ"] is None
+    assert territoires["NKV-GOM"] == 9
+
+
+def _fixer_cles(session_admin, cle: int):
+    """Clés de cellule imposées, pour des décalages connus (cle 0 : -2 ; cle 250 : +2)."""
+    from sqlalchemy import text
+
+    session_admin.execute(text(f"UPDATE coeur.interactions SET cle_cellule = {cle}"))
+    session_admin.commit()
+
+
+def test_difference_entre_deux_periodes_brouillee(client, exemples, session_admin, monkeypatch):
+    """Du 1er au 10 moins du 1er au 9 : le seul citoyen du 10 ne doit pas apparaître."""
+    from coeur.config import parametres
+
+    monkeypatch.setattr(parametres(), "perturbation_statistique", True)
+    for i in range(20):
+        poser(client, "NKV-GOM", f"08100000{i:02d}")
+    neuf_jours = datetime.now(timezone.utc) - timedelta(days=1)
+    session_admin.execute(update(Interaction).values(horodatage=neuf_jours))
+    session_admin.commit()
+    poser(client, "NKV-GOM", "0819999999")  # le seul du jour
+    # Clés connues : les 20 de la veille somment à 20 × 100 = 2000 ≡ 208 → +1 ;
+    # avec celui du jour (clé 40), 2040 ≡ 248 → +2.
+    session_admin.execute(text("UPDATE coeur.interactions SET cle_cellule = 100 "
+                               "WHERE horodatage < now() - interval '1 hour'"))
+    session_admin.execute(text("UPDATE coeur.interactions SET cle_cellule = 40 "
+                               "WHERE horodatage > now() - interval '1 hour'"))
+    session_admin.commit()
+    hier = neuf_jours.date()
+    aujourd_hui = datetime.now(timezone.utc).date()
+
+    def total(jusqu_a):
+        [ligne] = stats(client, depuis=hier.isoformat(), jusqu_a=jusqu_a.isoformat())["interactions"]
+        return ligne["nb_interactions"]
+
+    assert (total(hier), total(aujourd_hui)) == (21, 23)  # vrais effectifs : 20 et 21
+    assert total(aujourd_hui) - total(hier) != 1
+    # La même requête donne toujours le même chiffre.
+    assert total(aujourd_hui) == total(aujourd_hui)
+
+
+def test_cases_masquees_jamais_perturbees(client, activite, session_admin, monkeypatch):
+    from coeur.config import parametres
+
+    monkeypatch.setattr(parametres(), "perturbation_statistique", True)
+    _fixer_cles(session_admin, 250)
+    lignes = {l["unite"]: l for l in stats(client, niveau="province")["interactions"]}
+    assert lignes["KCE"]["nb_interactions"] is None
+    # Six enregistrements de clé 250 : 1500 ≡ 220 → +1.
+    assert lignes["NKV"]["nb_interactions"] == 7

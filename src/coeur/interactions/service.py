@@ -4,6 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from coeur.commun import Canal
+from coeur.config import parametres
 from coeur.confidentialite.service import masquer_donnees_sensibles
 from coeur.connaissances.schemas import ReponseSortie
 from coeur.interactions.modeles import Interaction
@@ -18,7 +19,13 @@ def enregistrer(
     territoire_code: str | None,
     usager_empreinte: str | None,
     reponse: ReponseSortie,
+    horodatage: datetime | None = None,
+    entree: str = "texte",
 ) -> Interaction:
+    """Journalise un échange. `horodatage` : heure de l'échange s'il a eu lieu hors ligne."""
+    conservation = parametres().conservation_texte_questions
+    garder_texte = conservation == "tout" or (
+        conservation == "escalades" and reponse.type == "escalade")
     interaction = Interaction(
         canal=canal.value,
         langue_demandee=langue_demandee,
@@ -29,8 +36,11 @@ def enregistrer(
         motif_escalade=reponse.motif,
         contenu_id=reponse.contenu.contenu_id if reponse.contenu else None,
         score=reponse.score,
-        texte_masque=masquer_donnees_sensibles(texte)[:500],
+        texte_masque=masquer_donnees_sensibles(texte)[:500] if garder_texte else None,
+        entree=entree,
     )
+    if horodatage is not None:
+        interaction.horodatage = horodatage
     session.add(interaction)
     session.commit()
     return interaction
@@ -60,7 +70,8 @@ def escalades_frequentes(
     """
     texte = func.lower(func.trim(Interaction.texte_masque)).label("texte")
     requete = select(texte, Interaction.langue_demandee, func.count()).where(
-        Interaction.resultat == "escalade", Interaction.motif_escalade != "demande_humain"
+        Interaction.resultat == "escalade", Interaction.motif_escalade != "demande_humain",
+        Interaction.texte_masque.is_not(None),
     )
     if depuis:
         requete = requete.where(Interaction.horodatage >= depuis)

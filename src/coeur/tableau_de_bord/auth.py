@@ -67,7 +67,8 @@ def utilisateur_connecte(request: Request) -> Utilisateur:
 
 
 # Espaces du tableau de bord et leur page d'accueil, dans l'ordre de préférence.
-ACCUEILS = {"pilotage": CHEMIN, "agents": f"{CHEMIN}/agent", "qualite": f"{CHEMIN}/qualite"}
+ACCUEILS = {"pilotage": CHEMIN, "agents": f"{CHEMIN}/agent", "qualite": f"{CHEMIN}/qualite",
+            "terrain": f"{CHEMIN}/terrain"}
 
 
 def espaces(role: str | None) -> list[str]:

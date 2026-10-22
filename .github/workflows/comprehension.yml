@@ -1,0 +1,73 @@
+# Compréhension du texte en langues nationales : des modèles multilingues retrouvent-ils
+# la phrase française à partir du lingala, du kiswahili, du kikongo, du tshiluba ?
+# Mesure sur FLORES-200 (outils/evaluer_comprehension_texte.py). Lourde : seulement quand
+# le script change, ou à la demande. Le rapport est dans le résumé du run.
+name: Compréhension du texte (modèles réels)
+
+on:
+  push:
+    paths:
+      - "outils/evaluer_comprehension_texte.py"
+      - ".github/workflows/comprehension.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: comprehension-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mesure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Le moteur du cœur, en référence : lent, sur 300 phrases seulement.
+          - nom: lexical
+            modeles: lexical --requetes 300
+            paquets: numpy
+          - nom: encodeurs
+            modeles: >-
+              st:sentence-transformers/LaBSE
+              st:intfloat/multilingual-e5-base
+              st:BAAI/bge-m3
+            paquets: sentence-transformers
+          - nom: sonar
+            modeles: sonar
+            paquets: sonar-space
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Outils système (libsndfile pour fairseq2)
+        if: matrix.nom == 'sonar'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libsndfile1
+      - name: Dépendances (PyTorch pour processeur)
+        run: |
+          # fairseq2 (SONAR) de PyPI est compilé pour CUDA : variante processeur, index de Meta.
+          pip install --extra-index-url https://download.pytorch.org/whl/cpu \
+            --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.8.0/cpu \
+            "torch==2.8.0" ${{ matrix.paquets }}
+          pip install -e .
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/huggingface
+            ~/.cache/fairseq2
+            ~/.cache/flores
+          key: comprehension-${{ matrix.nom }}-v1
+      - name: Mesure
+        run: |
+          python outils/evaluer_comprehension_texte.py ${{ matrix.modeles }} --sortie rapport.md
+          cat rapport.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rapport-${{ matrix.nom }}
+          path: rapport.md
+          if-no-files-found: ignore

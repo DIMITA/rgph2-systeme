@@ -24,6 +24,7 @@
       {% endif %}
       {% if "agents" in espaces %}<a href="/tableau-de-bord/agent"{% if rubrique == "agent" %} aria-current="page"{% endif %}>Console agent</a>{% endif %}
       {% if "qualite" in espaces %}<a href="/tableau-de-bord/qualite"{% if rubrique == "qualite" %} aria-current="page"{% endif %}>Écoute qualité</a>{% endif %}
+      {% if "terrain" in espaces %}<a href="/tableau-de-bord/terrain"{% if rubrique == "terrain" %} aria-current="page"{% endif %}>Kiosques et Ambassadeurs</a>{% endif %}
     </nav>
     <form class="session" method="post" action="/tableau-de-bord/deconnexion">
       <span>{{ utilisateur.email }}</span> <button type="submit" class="secondaire">Se déconnecter</button>

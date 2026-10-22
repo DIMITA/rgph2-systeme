@@ -2,7 +2,8 @@
 
 Prérequis :
   - pile démarrée avec TELEPHONIE_SIMULATION=true et SIP_ADRESSE_EXTERNE=127.0.0.1 ;
-  - pip install playwright   (aucun navigateur à télécharger : Edge installé suffit).
+  - pip install playwright   (aucun navigateur à télécharger : Edge installé suffit, ou
+    NAVIGATEUR_E2E=/chemin/vers/chrome).
 
 Déroulé, avec un micro factice (son de test) :
   1. un agent se connecte, prend le poste 1 : le téléphone du navigateur s'enregistre ;
@@ -79,7 +80,10 @@ def main() -> None:
     debut = sql("SELECT now()")
     try:
         with sync_playwright() as p:
-            navigateur = p.chromium.launch(channel="msedge", args=[
+            # Edge installé par défaut ; NAVIGATEUR_E2E : chemin d'un autre Chromium.
+            chemin = os.environ.get("NAVIGATEUR_E2E")
+            lancement = {"executable_path": chemin} if chemin else {"channel": "msedge"}
+            navigateur = p.chromium.launch(**lancement, args=[
                 "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream",
                 "--disable-features=WebRtcHideLocalIpsWithMdns",
             ])

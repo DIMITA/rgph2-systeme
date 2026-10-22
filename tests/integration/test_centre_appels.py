@@ -252,3 +252,107 @@ def test_mots_de_passe_des_postes():
     a, b = mot_de_passe_poste("s" * 32, "poste1"), mot_de_passe_poste("s" * 32, "poste2")
     assert a != b and len(a) == 32
     assert mot_de_passe_poste("s" * 32, "poste1") == a
+
+
+# --- Question dite au SVI (touche 9) -----------------------------------------------------
+
+@pytest.fixture
+def voix(monkeypatch):
+    """Transcription simulée (le « son » est le texte), ouverte au français seulement."""
+    from coeur.comprehension.transcription import transcripteur
+    from coeur.config import parametres
+
+    monkeypatch.setattr(parametres(), "transcription", "simulation")
+    monkeypatch.setattr(parametres(), "transcription_langues", "fr")
+    transcripteur.cache_clear()
+    yield
+    transcripteur.cache_clear()
+
+
+def dire(client, paroles: bytes, appel="qv1", langue="fr"):
+    return client.post("/v1/appels/question-vocale", params={"appel": appel, "langue": langue},
+                       content=paroles, headers={**CENTRE, "Content-Type": "audio/wav"})
+
+
+def test_menu_annonce_la_question_dite_dans_les_langues_transcrites(client, svi, voix):
+    menu = client.get("/v1/appels/svi", headers=CENTRE).json()
+    assert menu["vocal"] == ["fr"]
+    # Tout contenu publié peut être proposé, pas seulement les huit du menu.
+    assert {i["cle"] for i in menu["catalogue"]["fr"]} >= {
+        "exemple-calendrier-passage", "exemple-verifier-agent"}
+    assert len(menu["catalogue"]["fr"]) > len(menu["menus"]["fr"])
+
+
+def test_menu_sans_transcription_pas_de_question_dite(client, svi):
+    menu = client.get("/v1/appels/svi", headers=CENTRE).json()
+    assert menu["vocal"] == [] and menu["catalogue"] == {}
+
+
+def test_question_dite_confirmee_puis_journalisee(client, svi, voix, session_admin):
+    evenement(client, type="debut", appel="qv1", numero=NUMERO)
+    r = dire(client, "Quand les agents recenseurs passeront chez moi ?".encode())
+    assert r.status_code == 200
+    assert r.json() == {"issue": "proposition",
+                        "contenu_id": svi["exemple-calendrier-passage"]}
+    # Rien n'est journalisé avant la confirmation.
+    assert compter(session_admin, Interaction) == 0
+
+    assert evenement(client, type="vocal_confirme", appel="qv1", touche="1").json() == {
+        "enregistre": True}
+    interaction = session_admin.scalars(select(Interaction)).one()
+    assert (interaction.canal, interaction.entree, interaction.resultat) == (
+        "centre_ecoute", "voix", "reponse")
+    assert interaction.contenu_id == svi["exemple-calendrier-passage"]
+    appel = session_admin.scalars(select(Appel).where(Appel.reference == "qv1")).one()
+    session_admin.refresh(appel)
+    assert appel.question_texte is None and appel.question_contenu_id is None
+
+
+def test_question_dite_refusee_escalade(client, svi, voix, session_admin):
+    dire(client, "Quand les agents recenseurs passeront chez moi ?".encode(), appel="qv2")
+    evenement(client, type="vocal_confirme", appel="qv2", touche="2")
+    interaction = session_admin.scalars(select(Interaction)).one()
+    assert (interaction.resultat, interaction.motif_escalade) == ("escalade", "vocal_non_confirme")
+    # Une seconde confirmation sans nouvelle question n'est pas comptée.
+    assert evenement(client, type="vocal_confirme", appel="qv2", touche="1").json() == {
+        "enregistre": False}
+
+
+def test_question_dite_masquee(client, svi, voix, session_admin):
+    dire(client, "Quand les agents passeront chez moi ? Mon numéro 0812345678".encode(),
+         appel="qv3")
+    evenement(client, type="vocal_confirme", appel="qv3", touche="1")
+    texte = session_admin.scalars(select(Interaction.texte_masque)).one()
+    assert "0812345678" not in (texte or "")
+
+
+def test_question_dite_incomprise_va_au_conseiller(client, svi, voix, session_admin):
+    assert dire(client, b"", appel="qv4").json() == {"issue": "conseiller", "contenu_id": None}
+    r = dire(client, "xyzzy plugh".encode(), appel="qv5")
+    assert r.json()["issue"] == "conseiller"
+    assert session_admin.scalars(select(Interaction.entree)).all() == ["voix"]
+
+
+def test_question_dite_langue_non_transcrite(client, svi, voix):
+    assert dire(client, "Quand les agents passeront ?".encode(), langue="ln").json()[
+        "issue"] == "conseiller"
+
+
+def test_question_dite_reservee_au_centre_ecoute(client, svi, voix):
+    r = client.post("/v1/appels/question-vocale", params={"appel": "x", "langue": "fr"},
+                    content=b"a", headers=WEB)
+    assert r.status_code == 403
+
+
+def test_question_dite_trop_longue(client, svi, voix, monkeypatch):
+    from coeur.config import parametres
+
+    monkeypatch.setattr(parametres(), "transcription_taille_max_ko", 1)
+    assert dire(client, b"a" * 2000).status_code == 413
+
+
+def test_fin_d_appel_oublie_la_question(client, svi, voix, session_admin):
+    dire(client, "Quand les agents recenseurs passeront chez moi ?".encode(), appel="qv6")
+    evenement(client, type="fin", appel="qv6")
+    appel = session_admin.scalars(select(Appel).where(Appel.reference == "qv6")).one()
+    assert appel.question_texte is None and appel.question_contenu_id is None

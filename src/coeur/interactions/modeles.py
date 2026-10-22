@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, String, func
+from sqlalchemy import (
+    BigInteger, CheckConstraint, DateTime, ForeignKey, SmallInteger, String, func, text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from coeur.base import SCHEMA_COEUR, Base
@@ -12,10 +14,16 @@ class Interaction(Base):
     __tablename__ = "interactions"
     __table_args__ = (
         CheckConstraint("resultat IN ('reponse', 'escalade')", name="resultat"),
+        CheckConstraint("entree IN ('texte', 'voix')", name="entree"),
         {"schema": SCHEMA_COEUR},
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    # Clé aléatoire secrète (0-255) pour la perturbation des statistiques
+    # (statistiques.service.perturber). Jamais exposée.
+    cle_cellule: Mapped[int] = mapped_column(
+        SmallInteger, server_default=text("floor(random() * 256)::smallint")
+    )
     horodatage: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
@@ -28,9 +36,12 @@ class Interaction(Base):
     # Empreinte HMAC du numéro (voir coeur.confidentialite).
     usager_empreinte: Mapped[str | None] = mapped_column(String(64))
     resultat: Mapped[str] = mapped_column(String(10))
+    # Question écrite ou dite (message vocal transcrit) : la qualité se mesure à part.
+    entree: Mapped[str] = mapped_column(String(8), server_default="texte")
     motif_escalade: Mapped[str | None] = mapped_column(String(40))
     # Pas de clé étrangère : l'historique reste lisible si un contenu est supprimé du CMS.
     contenu_id: Mapped[int | None]
     score: Mapped[float]
     # Question de l'usager, numéros et courriels masqués. Sert à enrichir la FAQ.
-    texte_masque: Mapped[str] = mapped_column(String(500))
+    # None selon CONSERVATION_TEXTE_QUESTIONS.
+    texte_masque: Mapped[str | None] = mapped_column(String(500))

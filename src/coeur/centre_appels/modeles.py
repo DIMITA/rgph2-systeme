@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import (
+    BigInteger, CheckConstraint, DateTime, Float, ForeignKey, Integer, String, Text, func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from coeur.base import SCHEMA_COEUR, Base
@@ -34,6 +36,11 @@ class Appel(Base):
     fin_a: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     rappel_demande: Mapped[bool] = mapped_column(default=False, server_default="false")
     qualification: Mapped[str | None] = mapped_column(String(20))
+    # Question dite au SVI, en attente de la confirmation du citoyen (touche 1 ou 2) :
+    # transcription masquée, sujet compris et score. Effacés dès la réponse ou la fin.
+    question_texte: Mapped[str | None] = mapped_column(Text)
+    question_contenu_id: Mapped[int | None] = mapped_column(Integer)
+    question_score: Mapped[float | None] = mapped_column(Float)
 
 
 class Rappel(Base):
@@ -61,6 +68,8 @@ class Rappel(Base):
     statut: Mapped[str] = mapped_column(String(16), server_default="a_rappeler")
     traite_a: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     traite_par: Mapped[str | None] = mapped_column(String(255))
+    # Prise en charge par un agent : la réservation tombe après RAPPEL_RESERVATION_MINUTES.
+    pris_a: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Enregistrement(Base):

@@ -83,7 +83,7 @@ def similarite_mots(a: str, b: str) -> float:
     if a == b:
         return 1.0
     prefixe = 0
-    for x, y in zip(a, b):
+    for x, y in zip(a, b, strict=False):
         if x != y:
             break
         prefixe += 1

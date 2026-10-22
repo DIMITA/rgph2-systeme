@@ -47,7 +47,7 @@ ajoutez une <strong>formulation</strong> à un contenu existant si la réponse e
         <td>{{ noms.get(i.langue_demandee, i.langue_demandee) }}</td>
         <td>{{ noms.get(i.territoire_code, "—") if i.territoire_code else "—" }}</td>
         <td>{{ motifs.get(i.motif_escalade, i.motif_escalade) }}</td>
-        <td>{{ i.texte_masque }}</td>
+        <td>{{ i.texte_masque or "—" }}</td>
       </tr>
     {% endfor %}
     </tbody>

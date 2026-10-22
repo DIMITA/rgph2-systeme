@@ -10,22 +10,23 @@ citoyen ──► WhatsApp (Meta) ──POST signé──► /v1/whatsapp/webhoo
 
 ## Ce que vit le citoyen
 
-1. Au premier message, il reçoit un accueil et une **liste des langues**. Sa langue est ensuite retenue, et c'est la même que celle choisie par USSD ou par SMS : l'usager est reconnu par l'empreinte de son numéro.
+1. Au premier message, il reçoit un accueil et une **liste des langues**. S'il a posé une question dans ce message, elle reçoit sa réponse dès la langue choisie. Sa langue est ensuite retenue, et c'est la même que celle choisie par USSD ou par SMS : l'usager est reconnu par l'empreinte de son numéro.
 2. Le **menu** propose : questions fréquentes, date de passage, vérifier un agent, ménage non recensé, parler à un conseiller, changer de langue.
 3. Il peut aussi **écrire sa question**. La base fermée donne la **réponse complète validée**, suivie de l'**audio** et de la **vidéo** en langue locale s'ils existent dans Directus (champs `audio_url` et `video_url`). Sans réponse validée, il peut demander à être rappelé, et la demande arrive dans la console des agents avec l'origine « WhatsApp ».
 4. Les mots-clés du SMS fonctionnent aussi : `AGENT AB1234`, `PASSAGE GOMA`…
-5. Les messages vocaux et les images ne sont pas lus : pas de reconnaissance vocale pendant le pilote (voir architecture.md). Le bot invite à écrire.
+5. Il peut **envoyer un message vocal** dans sa langue. Le bot le transcrit (service `transcription`, voir [transcription/LISEZMOI.md](../transcription/LISEZMOI.md)), cherche le sujet dans la base fermée, puis demande « J'ai compris votre question ainsi : … Est-ce bien cela ? » avec Oui / Non (et l'audio de la question s'il existe). « Oui » : la réponse validée. « Non » : il propose de reformuler ou d'être rappelé. Dans une langue pas encore ouverte (`TRANSCRIPTION_LANGUES`), il propose directement un rappel par un conseiller. La voix n'est jamais enregistrée.
+6. Les images et les vidéos ne sont pas lues : le bot invite à écrire ou à parler.
 
 ## Démarches au nom de l'INS (hors code)
 
 1. **Meta Business Suite** : créer le portefeuille d'entreprise de l'INS et faire **vérifier l'entreprise** (documents officiels).
 2. **Compte WhatsApp Business** et **numéro dédié**. Ce numéro ne doit pas déjà être utilisé dans l'application WhatsApp.
 3. **Application Meta** (developers.facebook.com) avec le produit WhatsApp. Il faut relever :
-   - l'identifiant du numéro (*Phone number ID*), à mettre dans `WHATSAPP_NUMERO_ID` ;
-   - le **secret de l'application**, à mettre dans `WHATSAPP_SECRET_APP`.
-4. **Jeton permanent** : créer un *utilisateur système* avec la permission `whatsapp_business_messaging`. Son jeton va dans `WHATSAPP_JETON`. Le jeton temporaire de la console expire en 24 h.
-5. **Webhook** : l'adresse est `https://<serveur>/v1/whatsapp/webhook`, en HTTPS obligatoire, avec un certificat valide. Le jeton de vérification est celui de `WHATSAPP_JETON_VERIFICATION`. S'abonner au champ **`messages`**.
-6. Passer `WHATSAPP_PASSERELLE=meta`, puis lancer `docker compose up -d api`.
+   - l'identifiant du numéro (*Phone number ID*), réglage `whatsapp_numero_id` ;
+   - le **secret de l'application**, réglage `whatsapp_secret_app`.
+4. **Jeton permanent** : créer un *utilisateur système* avec la permission `whatsapp_business_messaging`. Son jeton est le réglage `whatsapp_jeton`. Le jeton temporaire de la console expire en 24 h.
+5. **Webhook** : l'adresse est `https://<serveur>/v1/whatsapp/webhook`, en HTTPS obligatoire, avec un certificat valide. Le jeton de vérification est le réglage `whatsapp_jeton_verification`, tiré au hasard à l'initialisation : l'afficher avec `docker compose run --rm migrations python -m coeur.reglages afficher whatsapp_jeton_verification` et le recopier chez Meta. S'abonner au champ **`messages`**.
+6. Saisir ces valeurs, chiffrées en base, avec l'assistant (`docker compose run --rm migrations python -m coeur.reglages initialiser`, passerelle « meta ») ou une à une (`docker compose run --rm migrations python -m coeur.reglages definir whatsapp_jeton`), puis `docker compose restart api taches`.
 
 ### Profil du compte (charte graphique du Gouvernement)
 

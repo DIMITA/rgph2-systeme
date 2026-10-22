@@ -1,20 +1,42 @@
-"""Paramètres de l'application, lus dans les variables d'environnement (ou le fichier .env)."""
+"""Paramètres de l'application.
+
+Lus, par ordre de priorité : variables d'environnement, fichier .env, puis réglages
+chiffrés en base (`coeur.reglages`, saisis à l'initialisation). Seul ce qu'il faut
+pour atteindre la base, ou ce que d'autres conteneurs lisent aussi, reste dans .env.
+"""
 
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 from coeur.commun import Canal
+from coeur.reglages.source import SourceReglages
 
 
 class Parametres(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    @classmethod
+    def settings_customise_sources(cls, settings_cls: type[BaseSettings],
+                                   init_settings: PydanticBaseSettingsSource,
+                                   env_settings: PydanticBaseSettingsSource,
+                                   dotenv_settings: PydanticBaseSettingsSource,
+                                   file_secret_settings: PydanticBaseSettingsSource):
+        # Après l'environnement et le .env : ils l'emportent (tests, dépannage).
+        return (init_settings, env_settings, dotenv_settings, SourceReglages(settings_cls),
+                file_secret_settings)
+
     environnement: str = "developpement"
 
     # Connexion de l'API (rôle rgph_api : lecture seule sur les contenus du CMS).
     database_url: str
+    # Connexions à PostgreSQL par processus : `base_connexions` gardées ouvertes, jusqu'à
+    # `base_connexions_max` au pic. Une requête en tient une ; au-delà, elle attend.
+    # Le total sur tous les processus doit rester sous max_connections de PostgreSQL.
+    base_connexions: int = 10
+    base_connexions_max: int = 20
 
     # Clé secrète servant à calculer l'empreinte des numéros de téléphone.
     # La perdre empêche de relier les nouvelles interactions aux anciennes ;
@@ -34,14 +56,23 @@ class Parametres(BaseSettings):
     marge_ambiguite: float = 0.1
     # Toute case statistique strictement inférieure à ce seuil (et non nulle) est masquée.
     seuil_secret_statistique: int = 5
+    # Perturbation des effectifs publiés (± 2, méthode de la clé de cellule) : empêche de
+    # retrouver une petite valeur par différence entre deux périodes. Désactivable pour
+    # les tests seulement.
+    perturbation_statistique: bool = True
     # Durée pendant laquelle les contenus publiés restent en mémoire avant relecture.
     cache_contenus_secondes: int = 60
     langue_par_defaut: str = "fr"
+    # Texte des questions gardé dans le journal (masqué) : « tout », « escalades »
+    # (seulement les questions restées sans réponse, utiles pour enrichir la FAQ) ou
+    # « aucun ». Un citoyen peut écrire un nom dans sa question : à arbitrer par le
+    # point focal protection des données.
+    conservation_texte_questions: Literal["tout", "escalades", "aucun"] = "tout"
 
     # Portail web
     # Vide tant que le numéro n'est pas attribué : le portail n'en affiche alors aucun.
     numero_vert: str = ""
-    # Limites par adresse IP (gardées en mémoire, jamais enregistrées).
+    # Limites par adresse IP (comptées en base, adresse jamais enregistrée en clair).
     portail_questions_par_minute: int = 20
     portail_signalements_par_heure: int = 5
 
@@ -51,6 +82,8 @@ class Parametres(BaseSettings):
     roles_tableau_de_bord: str = "Administrator,Validateur BCR,Tableau de bord"
     roles_agents: str = "Administrator,Agent centre d'appels"
     roles_qualite: str = "Administrator,Superviseur qualité"
+    # Enrôlement et révocation des kiosques et des téléphones d'Ambassadeurs.
+    roles_terrain: str = "Administrator"
     # Signe le cookie de session du tableau de bord (32 caractères au moins).
     secret_session: str = Field(min_length=32)
     # À activer en production (HTTPS) : le cookie n'est alors jamais envoyé en clair.
@@ -70,6 +103,9 @@ class Parametres(BaseSettings):
     dossier_enregistrements: str = "/donnees/enregistrements"
     conservation_enregistrements_jours: int = 90
     conservation_rappels_jours: int = 7
+    # Un rappel pris par un agent et non clôturé lui reste réservé ce temps-là, puis
+    # redevient disponible pour les autres agents.
+    rappel_reservation_minutes: int = 30
     # Adresse WebSocket d'Asterisk vue du navigateur des agents (wss:// en production).
     asterisk_ws_url: str = "ws://localhost:8088/ws"
     # Domaine SIP des postes (indifférent pour Asterisk, qui identifie par l'utilisateur).
@@ -121,6 +157,26 @@ class Parametres(BaseSettings):
     # Abonnement (et numéro) effacé ce nombre de jours après la fin du dernier passage.
     whatsapp_abonnement_jours_apres: int = 7
 
+    # Compréhension de la voix (voir coeur.comprehension)
+    # « aucune », « service » (modèle open source hébergé par le projet) ou « simulation ».
+    transcription: Literal["aucune", "service", "simulation"] = "aucune"
+    transcription_url: str = "http://transcription:9000"
+    # Langues dont les messages vocaux sont transcrits, ouvertes une à une après
+    # évaluation sur de vrais messages (ex. « sw,ln »). Les autres : proposition de rappel.
+    transcription_langues: str = ""
+    transcription_delai_secondes: float = 60
+    # Taille maximale d'un message vocal transcrit (environ 2 minutes en Opus).
+    transcription_taille_max_ko: int = 2048
+
+    # Kiosques et Ambassadeurs
+    # Validité d'un code d'activation remis pour une tablette ou un téléphone.
+    terrain_activation_jours: int = 7
+    # Les identifiants des remontées reçues (anti-doublon) sont effacés après ce délai.
+    conservation_remontees_jours: int = 60
+
+    def langues_transcription(self) -> set[str]:
+        return {l.strip() for l in self.transcription_langues.split(",") if l.strip()}
+
     def langue_modele(self, langue: str) -> str:
         correspondances = dict(p.strip().split(":", 1)
                                for p in self.whatsapp_modele_langues.split(",") if ":" in p)
@@ -131,13 +187,14 @@ class Parametres(BaseSettings):
         return {int(j): f"j{int(j)}" for j in self.whatsapp_rappels_jours.split(",") if j.strip()}
 
     def roles_par_espace(self) -> dict[str, set[str]]:
-        """Espace (pilotage, agents, qualite) → rôles Directus admis."""
+        """Espace (pilotage, agents, qualite, terrain) → rôles Directus admis."""
         def liste(texte: str) -> set[str]:
             return {r.strip() for r in texte.split(",") if r.strip()}
 
         return {"pilotage": liste(self.roles_tableau_de_bord),
                 "agents": liste(self.roles_agents),
-                "qualite": liste(self.roles_qualite)}
+                "qualite": liste(self.roles_qualite),
+                "terrain": liste(self.roles_terrain)}
 
     def roles_autorises(self) -> set[str]:
         return set().union(*self.roles_par_espace().values())

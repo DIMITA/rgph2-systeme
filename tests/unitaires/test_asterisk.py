@@ -142,3 +142,30 @@ def test_codes_de_pause_des_agents():
     texte = (DOSSIER / "config" / "extensions.conf").read_text(encoding="utf-8")
     assert "exten => *1,1,Answer()" in texte and "PauseQueueMember(rgph," in texte
     assert "UnpauseQueueMember(rgph," in texte
+
+
+# --- Question dite (touche 9) ----------------------------------------------------------
+
+def test_question_dite_proposee_dans_les_langues_transcrites():
+    texte = generer_dialplan(LANGUES, {"fr": [(1, 12)], "ln": [(1, 12)]}, frozenset({"fr"}))
+    fr, ln = texte.split("[svi-fr]")[1].split("[svi-ln]")
+    assert "Background(rgph/touche_1&rgph/svi/q-12&rgph/question_proposer)" in fr
+    assert "exten => 9,1,Goto(question-vocale,s,1)" in fr
+    assert "question" not in ln
+
+
+def test_langue_sans_menu_mais_transcrite_va_a_la_question_dite():
+    texte = generer_dialplan(LANGUES, {"fr": [(1, 12)], "ln": []}, frozenset({"ln"}))
+    assert "Goto(question-vocale,s,1)" in texte.split("[svi-ln]")[1]
+
+
+def test_parcours_de_la_question_dite_dans_le_dialplan():
+    texte = (DOSSIER / "config" / "extensions.conf").read_text()
+    contexte = texte.split("[question-vocale]")[1].split("\n[")[0]
+    assert "Record(${FICHIER_QV},3,20)" in contexte and "/dev/shm/rgph-questions/" in contexte
+    assert "AGI(/opt/rgph/synchro/question_vocale.py,${FICHIER_QV})" in contexte
+    # Confirmation avant toute réponse ; l'événement part avant la réponse écoutée.
+    assert contexte.index("type=vocal_confirme") < contexte.index("Playback(rgph/svi/r-")
+    assert {"question_proposer", "question_dire", "question_vous_voulez",
+            "question_oui_non", "question_reformuler", "question_non_comprise"} <= set(
+                messages.PHRASES)

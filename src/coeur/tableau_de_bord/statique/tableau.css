@@ -53,3 +53,13 @@ button.petit{padding:.2rem .6rem;font-size:.8rem;margin-left:.6rem;vertical-alig
 #resultats details{border-bottom:1px solid var(--trait);padding:.4rem 0}
 #resultats summary{cursor:pointer;color:var(--bleu)}
 td audio{width:16rem;max-width:100%}
+/* Espace terrain */
+.code-activation{font-size:2rem;font-weight:600;letter-spacing:.12em;color:var(--bleu);margin:.4rem 0}
+.activation{border-left:4px solid var(--etat-jaune)}
+.enrolement{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(16rem,100%),1fr));gap:.6rem 1rem;align-items:end}
+.enrolement label{display:flex;flex-direction:column;font-size:.85rem;color:var(--texte-doux);gap:.2rem}
+.enrolement fieldset,.enrolement .note,.enrolement button{grid-column:1/-1}
+.enrolement .choix{flex-direction:row;align-items:center;gap:.4rem;display:inline-flex;margin-right:1rem}
+td.actions{display:flex;gap:.3rem;flex-wrap:wrap}
+td.actions button{margin:0}
+.alerte{color:var(--brun)}

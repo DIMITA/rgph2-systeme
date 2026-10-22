@@ -5,6 +5,7 @@ Asterisk avec le compte SIP d'un poste. Le mot de passe du poste est dérivé de
 SECRET_POSTES et n'est remis qu'aux agents connectés.
 """
 
+from datetime import timedelta
 from pathlib import Path
 from typing import Literal
 
@@ -182,12 +183,18 @@ def rappels(
 ):
     """Demandes de rappel ouvertes, sans les numéros (révélés seulement à la prise en charge)."""
     noms = {l.code: l.nom for l in connaissances.langues_actives(session)}
+    reservation = _reservation()
     return [
         {"id": r.id, "cree_a": heure_locale(r.cree_a), "langue_nom": noms.get(r.langue or "", "—"),
          "origine": ORIGINES.get(r.origine, r.origine),
-         "statut": r.statut, "pris_par_moi": r.traite_par == utilisateur.email}
+         "statut": "en_cours" if centre.reservation_active(r, reservation) else "a_rappeler",
+         "pris_par_moi": r.traite_par == utilisateur.email}
         for r in centre.rappels_ouverts(session)
     ]
+
+
+def _reservation() -> timedelta:
+    return timedelta(minutes=parametres().rappel_reservation_minutes)
 
 
 @routeur.post("/agent/rappels/{rappel_id}/prendre")
@@ -197,7 +204,7 @@ def prendre_rappel(
     session: Session = Depends(session_db),
 ):
     try:
-        numero = centre.prendre_rappel(session, rappel_id, utilisateur.email)
+        numero = centre.prendre_rappel(session, rappel_id, utilisateur.email, _reservation())
     except centre.RappelDejaPris:
         return JSONResponse({"detail": "Rappel déjà pris par un autre agent"}, status_code=409)
     if numero is None:

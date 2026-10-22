@@ -12,7 +12,7 @@ COPY config/ /opt/rgph/modeles/
 COPY messages/ /opt/rgph/messages/
 COPY synchro/ /opt/rgph/synchro/
 COPY entrypoint.sh /opt/rgph/entrypoint.sh
-RUN chmod +x /opt/rgph/entrypoint.sh
+RUN chmod +x /opt/rgph/entrypoint.sh /opt/rgph/synchro/question_vocale.py
 
 # 5060/udp : SIP (opérateur, simulateur) ; 8088 : WebSocket des postes d'agents ;
 # 10000-10050/udp : flux audio (RTP).

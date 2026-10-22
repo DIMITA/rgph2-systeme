@@ -55,6 +55,8 @@ MOTIFS = {
     "ambigu": "Plusieurs réponses possibles",
     "demande_humain": "Demande à parler à quelqu'un",
     "traduction_indisponible": "Traduction indisponible",
+    "remontee_terrain": "Recueillie sur le terrain (kiosque, Ambassadeur)",
+    "vocal_non_confirme": "Message vocal mal compris (refusé par le citoyen)",
 }
 TYPES = {
     "menage_non_visite": "Ménage non visité",
@@ -75,7 +77,7 @@ PILOTAGE = exiger("pilotage")
 @lru_cache
 def limiteur_connexion() -> LimiteurDebit:
     """10 tentatives de connexion par quart d'heure et par adresse IP."""
-    return LimiteurDebit(10, 15 * 60)
+    return LimiteurDebit("connexion", 10, 15 * 60)
 
 
 def _date(texte: str | None) -> date | None:

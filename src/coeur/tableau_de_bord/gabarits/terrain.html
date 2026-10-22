@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block titre %}Kiosques et Ambassadeurs{% endblock %}
+{% block contenu %}
+<h1 class="filet">Kiosques et Ambassadeurs</h1>
+
+{% if activation %}
+<div class="carte activation" role="status">
+  <h2>Code d'activation de {{ activation.code }}</h2>
+  <p class="code-activation">{{ activation.valeur }}</p>
+  <p>À saisir une seule fois dans l'application, sur la tablette ou le téléphone (adresse <strong>/terrain/</strong>).
+  Valable {{ activation.jours }} jours. <strong>Il ne sera plus affiché</strong> : notez-le maintenant ou générez-en un autre plus tard.</p>
+</div>
+{% endif %}
+{% if message %}<p class="carte" role="status">{{ message }}</p>{% endif %}
+{% if erreur %}<p class="erreur" role="alert">{{ erreur }}</p>{% endif %}
+
+<details class="carte"{% if erreur or not appareils %} open{% endif %}>
+  <summary>Enrôler un appareil</summary>
+  <form method="post" action="/tableau-de-bord/terrain" class="enrolement">
+    <label>Type
+      <select name="type">
+        {% for code, libelle in types.items() %}<option value="{{ code }}"{% if saisie.type == code %} selected{% endif %}>{{ libelle }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Code de l'appareil
+      <input name="code" required maxlength="40" pattern="[A-Za-z0-9][A-Za-z0-9\-]{2,39}" placeholder="KIO-NKV-GOM-01" value="{{ saisie.code or '' }}">
+    </label>
+    <label>Territoire
+      <select name="territoire_code" required>
+        <option value="">Choisir</option>
+        {% for p in provinces %}{% if p.territoires %}
+        <optgroup label="{{ p.nom }}">
+          {% for t in p.territoires %}<option value="{{ t.code }}"{% if t.code == saisie.territoire_code %} selected{% endif %}>{{ t.nom }}</option>{% endfor %}
+        </optgroup>
+        {% endif %}{% endfor %}
+      </select>
+    </label>
+    <label>Lieu (kiosque seulement)
+      <input name="lieu" maxlength="120" placeholder="École primaire, mairie…" value="{{ saisie.lieu or '' }}">
+    </label>
+    <fieldset>
+      <legend>Langues embarquées (le français l'est toujours)</legend>
+      {% for l in langues %}<label class="choix"><input type="checkbox" name="langues" value="{{ l.code }}"{% if l.code in (saisie.langues or []) %} checked{% endif %}> {{ l.nom }}</label>{% endfor %}
+    </fieldset>
+    <p class="note">Pour un Ambassadeur, le code suffit : aucun nom de personne n'est enregistré ici. La correspondance entre code et Ambassadeur reste à l'INS.</p>
+    <button type="submit">Créer et obtenir le code d'activation</button>
+  </form>
+</details>
+
+{% if appareils %}
+<div class="carte">
+<table>
+  <thead><tr><th scope="col">Code</th><th scope="col">Type</th><th scope="col">Territoire</th><th scope="col">Lieu</th><th scope="col">État</th><th scope="col">Dernière synchronisation</th><th scope="col">Remontées ({{ jours_remontees }} j)</th><th scope="col">Actions</th></tr></thead>
+  <tbody>
+  {% for a in appareils %}
+    {% set e = etat(a) %}
+    <tr class="appareil">
+      <td>{{ a.code }}</td>
+      <td>{{ types.get(a.type, a.type) }}</td>
+      <td>{{ noms.get(a.territoire_code, a.territoire_code) }}</td>
+      <td>{{ a.lieu or "—" }}</td>
+      <td>{{ e }}</td>
+      <td>{% if a.derniere_synchro_a %}{{ a.derniere_synchro_a | heure_locale }}{% if e == "Actif" and a.derniere_synchro_a < perime %} <strong class="alerte">à vérifier</strong>{% endif %}{% else %}—{% endif %}</td>
+      <td>{{ remontees.get(a.id, 0) }}</td>
+      <td class="actions">
+        <form method="post" action="/tableau-de-bord/terrain/{{ a.id }}/code"><button type="submit" class="secondaire petit">Nouveau code</button></form>
+        {% if e != "Révoqué" %}<form method="post" action="/tableau-de-bord/terrain/{{ a.id }}/revoquer"><button type="submit" class="danger petit">Révoquer</button></form>{% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="note">« Nouveau code » coupe aussitôt l'appareil actuel (tablette remplacée, application réinstallée). « Révoquer » : appareil perdu ou volé.
+Un appareil actif qui ne s'est pas synchronisé depuis 7 jours est signalé « à vérifier ».</p>
+{% else %}
+<p class="vide">Aucun appareil enrôlé.</p>
+{% endif %}
+{% endblock %}

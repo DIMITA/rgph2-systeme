@@ -27,7 +27,24 @@ class Base(DeclarativeBase):
 
 @lru_cache
 def moteur_sql() -> Engine:
-    return create_engine(parametres().database_url, pool_pre_ping=True)
+    reglages = parametres()
+    return create_engine(
+        reglages.database_url, pool_pre_ping=True, pool_size=reglages.base_connexions,
+        max_overflow=max(reglages.base_connexions_max - reglages.base_connexions, 0))
+
+
+@lru_cache
+def moteur_court() -> Engine:
+    """Pool à part pour les compteurs et la mémoire courte (`coeur.limiteur`).
+
+    Une requête qui tient déjà sa connexion en demande une seconde pour un compteur.
+    Dans le même pool, sous charge, toutes les requêtes tiendraient une connexion et
+    attendraient chacune la seconde : interblocage jusqu'au délai d'attente (constaté
+    au test de charge). Ces opérations sont brèves et ne s'imbriquent jamais : un petit
+    pool séparé ne peut pas se bloquer.
+    """
+    return create_engine(parametres().database_url, pool_pre_ping=True, pool_size=3,
+                         max_overflow=7)
 
 
 @lru_cache

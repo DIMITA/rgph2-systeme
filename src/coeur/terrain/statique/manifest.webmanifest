@@ -1,0 +1,16 @@
+{
+  "name": "RGPH-2 — Kiosque et Ambassadeurs",
+  "short_name": "RGPH-2",
+  "description": "Information officielle sur le recensement, utilisable sans réseau.",
+  "lang": "fr",
+  "start_url": "/terrain/",
+  "scope": "/terrain/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#17418a",
+  "icons": [
+    {"src": "/charte/icone-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "/charte/icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ]
+}

@@ -6,6 +6,8 @@
 set -e
 
 python3 /opt/rgph/synchro/configurer.py
+# Questions dites (touche 9) : en mémoire (tmpfs), effacées dès leur envoi au cœur.
+install -d -m 0700 -o asterisk -g asterisk /dev/shm/rgph-questions
 python3 /opt/rgph/synchro/synchroniser_svi.py || echo "SVI : première synchronisation impossible, nouvel essai plus tard."
 python3 /opt/rgph/synchro/synchroniser_svi.py --boucle "${SVI_SYNCHRO_SECONDES:-300}" &
 

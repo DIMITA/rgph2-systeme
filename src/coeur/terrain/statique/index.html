@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>RGPH-2 — Kiosque et Ambassadeurs</title>
+<link rel="manifest" href="/terrain/manifest.webmanifest">
+<link rel="preload" href="/charte/cooper-hewitt-medium.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/charte/charte.css">
+<link rel="stylesheet" href="/terrain/app.css">
+<link rel="icon" type="image/png" href="/charte/favicon.png">
+<link rel="apple-touch-icon" href="/charte/apple-touch-icon.png">
+<meta name="theme-color" content="#17418a">
+<script src="/terrain/app.js" defer></script>
+</head>
+<body>
+<header class="bandeau bandeau-bleu">
+  <div class="bandeau-int">
+    <span class="marque">
+      <img src="/charte/armoiries-blanc-54.png" srcset="/charte/armoiries-blanc-54@2x.png 2x" width="54" height="54" alt="Armoiries de la République démocratique du Congo">
+      <span class="ligne-etat" aria-hidden="true"></span>
+      <span class="intitule"><span>Institut national</span><span>de la statistique</span><span>Bureau central du recensement</span></span>
+    </span>
+    <nav aria-label="Navigation">
+      <button type="button" class="nav" data-aller="accueil" hidden data-t="accueil">Accueil</button>
+      <button type="button" class="nav" data-aller="langues" hidden data-t="changer_langue">Changer de langue</button>
+    </nav>
+  </div>
+</header>
+
+<main id="app">
+  <p id="chargement" class="note">Chargement…</p>
+
+  <!-- Avant le premier paquet, l'interface n'existe qu'en français. -->
+  <section id="activation" hidden>
+    <h1 class="titre-page filet">Activer cet appareil</h1>
+    <p>Saisissez le code d'activation remis par le Ministère (12 caractères). Il ne sert qu'une fois.</p>
+    <form id="form-activation" novalidate>
+      <label for="code-activation">Code d'activation</label>
+      <input id="code-activation" name="code" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD-EFGH-JKMN" required>
+      <p class="erreur" id="erreur-activation" role="alert" hidden></p>
+      <button type="submit">Activer</button>
+    </form>
+    <p class="note">Il faut du réseau pour l'activation et le premier téléchargement. Ensuite, l'appareil fonctionne sans réseau.</p>
+  </section>
+
+  <section id="langues" hidden>
+    <h1 class="titre-page filet" data-t="choisir_langue"></h1>
+    <div class="tuiles" id="liste-langues"></div>
+  </section>
+
+  <section id="accueil" hidden>
+    <p class="accroche" id="texte-accueil"></p>
+    <div class="tuiles" id="tuiles"></div>
+    <p class="contacts" id="contacts"></p>
+  </section>
+
+  <section id="faq" hidden>
+    <h1 class="titre-page filet" data-t="faq"></h1>
+    <label for="recherche" data-t="rechercher"></label>
+    <input id="recherche" type="search" autocomplete="off">
+    <div id="liste-faq"></div>
+    <p class="note" id="faq-vide" hidden></p>
+  </section>
+
+  <section id="passage" hidden>
+    <h1 class="titre-page filet" data-t="passage"></h1>
+    <p data-t="passage_intro"></p>
+    <form id="form-passage">
+      <label for="passage-province" data-t="province"></label>
+      <select id="passage-province" class="choix-province" data-cible="passage-territoire"></select>
+      <label for="passage-territoire" data-t="territoire"></label>
+      <select id="passage-territoire" required></select>
+      <button type="submit" data-t="voir"></button>
+    </form>
+    <p class="resultat" id="resultat-passage" role="status" hidden></p>
+  </section>
+
+  <section id="remontee" hidden>
+    <h1 class="titre-page filet" id="titre-remontee"></h1>
+    <p id="intro-remontee"></p>
+    <p class="note" data-t="confidentialite"></p>
+    <form id="form-remontee" novalidate>
+      <div id="bloc-texte">
+        <label for="remontee-texte" id="libelle-texte"></label>
+        <textarea id="remontee-texte" rows="4" maxlength="500"></textarea>
+      </div>
+      <div id="bloc-lieu">
+        <label for="remontee-province" data-t="province"></label>
+        <select id="remontee-province" class="choix-province" data-cible="remontee-territoire"></select>
+        <label for="remontee-territoire" data-t="territoire"></label>
+        <select id="remontee-territoire"></select>
+        <label for="remontee-localite" data-t="localite"></label>
+        <input id="remontee-localite" maxlength="120" autocomplete="off">
+      </div>
+      <div id="bloc-description">
+        <label for="remontee-description" data-t="description"></label>
+        <textarea id="remontee-description" rows="3" maxlength="500"></textarea>
+      </div>
+      <p class="erreur" id="erreur-remontee" role="alert" hidden></p>
+      <button type="submit" data-t="envoyer"></button>
+    </form>
+  </section>
+
+  <section id="merci" hidden>
+    <h1 class="titre-page filet" data-t="merci"></h1>
+    <p id="texte-merci"></p>
+    <p class="contacts" id="contacts-merci"></p>
+    <button type="button" class="secondaire" id="nouvelle-remontee" data-t="nouveau"></button>
+    <button type="button" data-aller="accueil" data-t="accueil"></button>
+  </section>
+
+  <section id="badge" hidden>
+    <h1 class="titre-page filet" data-t="verifier_badge"></h1>
+    <form id="form-badge" novalidate>
+      <label for="numero-badge" data-t="numero_badge"></label>
+      <input id="numero-badge" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40">
+      <button type="submit" data-t="verifier"></button>
+    </form>
+    <p class="resultat" id="resultat-badge" role="status" hidden></p>
+    <button type="button" class="secondaire" id="badge-signaler" data-t="signaler_agent" hidden></button>
+  </section>
+</main>
+
+<footer class="etat" id="etat" hidden>
+  <span id="etat-reseau"></span>
+  <span id="etat-paquet"></span>
+  <span id="etat-attente"></span>
+  <span id="etat-appareil"></span>
+  <button type="button" class="secondaire" id="synchroniser" data-t="synchroniser"></button>
+</footer>
+</body>
+</html>

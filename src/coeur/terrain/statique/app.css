@@ -1,0 +1,29 @@
+/* Application de terrain (kiosque et Ambassadeurs), sur la base de /charte/charte.css.
+   Pensée pour l'écran tactile : grandes cibles, gros caractères, aucune ressource externe. */
+body{font-size:1.1rem;background:var(--fond-doux);min-height:100vh;display:flex;flex-direction:column}
+main{flex:1;width:100%;max-width:52rem;margin:0 auto;padding:1rem}
+.bandeau nav button.nav{margin:0;background:transparent;border-color:#fff;padding:.4rem .9rem;font-size:.95rem}
+.titre-page{font-size:1.7rem}
+.accroche{font-size:1.2rem}
+.tuiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(15rem,100%),1fr));gap:1rem;margin:1rem 0}
+button.tuile{margin:0;min-height:5.5rem;font-size:1.2rem;text-align:left;padding:1rem 1.2rem;border-radius:8px;
+  background:#fff;color:var(--bleu);border:2px solid var(--trait);border-left:6px solid var(--bleu)}
+button.tuile:hover,button.tuile:active{background:var(--bleu-pale);border-color:var(--bleu)}
+label{display:block;margin:1rem 0 .35rem}
+input,select,textarea{width:100%;font-size:1.1rem;padding:.7rem}
+button{margin-top:1rem;font-size:1.1rem;padding:.8rem 1.6rem}
+details.question{background:#fff;border:1px solid var(--trait);border-radius:6px;margin:.6rem 0;padding:0}
+details.question summary{padding:1rem;font-size:1.15rem;color:var(--bleu)}
+details.question[open] summary{border-bottom:1px solid var(--trait)}
+.officielle{padding:.8rem 1rem;border-left:4px solid var(--bleu);background:var(--bleu-pale)}
+.officielle .auteur{margin:0;font-size:.85rem;font-weight:600;color:var(--bleu);text-transform:uppercase;letter-spacing:.03em}
+.texte-reponse{white-space:pre-line}
+.repli{font-size:.9rem;font-style:italic;color:var(--texte-doux)}
+audio{width:100%;margin-top:.5rem}
+.resultat{background:#fff;border-left:5px solid var(--etat-jaune);padding:1rem;font-size:1.2rem;font-weight:600}
+.contacts{font-weight:600;color:var(--bleu)}
+.etat{display:flex;flex-wrap:wrap;gap:.4rem 1.2rem;align-items:center;padding:.6rem 1rem;background:#fff;
+  border-top:1px solid var(--trait);font-size:.85rem;color:var(--texte-doux)}
+.etat button{margin:0 0 0 auto;padding:.3rem .9rem;font-size:.85rem}
+.etat .en-ligne{color:var(--vert-fonce);font-weight:600}
+.etat .hors-ligne{color:var(--brun);font-weight:600}

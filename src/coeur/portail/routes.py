@@ -48,8 +48,8 @@ def limiteurs() -> tuple[LimiteurDebit, LimiteurDebit]:
     """(questions par minute, signalements par heure)."""
     reglages = parametres()
     return (
-        LimiteurDebit(reglages.portail_questions_par_minute, 60),
-        LimiteurDebit(reglages.portail_signalements_par_heure, 3600),
+        LimiteurDebit("portail_questions", reglages.portail_questions_par_minute, 60),
+        LimiteurDebit("portail_signalements", reglages.portail_signalements_par_heure, 3600),
     )
 
 

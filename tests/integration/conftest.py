@@ -53,7 +53,8 @@ def base_propre(moteur_admin):
                 "coeur.appels, coeur.rappels, coeur.enregistrements, coeur.ecoutes, "
                 "coeur.badges, coeur.consultations, coeur.sms, coeur.preferences_langue, "
                 "calendrier_passages, coeur.conversations_whatsapp, coeur.whatsapp_messages, "
-                "coeur.abonnements_whatsapp, "
+                "coeur.abonnements_whatsapp, coeur.compteurs_debit, coeur.memoire_courte, "
+                "coeur.remontees_terrain, coeur.appareils, coeur.reglages, "
                 "coeur.territoires, coeur.provinces RESTART IDENTITY CASCADE"
             )
         )
@@ -84,7 +85,7 @@ def exemples(session_admin) -> dict[str, int]:
     from coeur.connaissances.exemples import EXEMPLES, charger_exemples
 
     ids = charger_exemples(session_admin)
-    return {ex["cle"]: i for ex, i in zip(EXEMPLES, ids)}
+    return {ex["cle"]: i for ex, i in zip(EXEMPLES, ids, strict=True)}
 
 
 @pytest.fixture

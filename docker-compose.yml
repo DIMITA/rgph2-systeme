@@ -8,44 +8,29 @@ x-image-coeur: &image-coeur
 # Réglages communs à tous les services Python du cœur (API, migrations et commandes
 # d'administration, tâches périodiques). Chaque service précise sa connexion à la base.
 x-env-coeur: &env-coeur
-  PEPPER_TELEPHONE: ${PEPPER_TELEPHONE:?à définir dans .env}
+  # Déchiffre les réglages gardés en base (coeur.reglages) : pepper, clés, WhatsApp,
+  # numéro vert… saisis avec l'assistant d'initialisation. Tout réglage que seul le cœur
+  # lit se règle en base, pas ici : une variable passée ici l'emporterait sur la base.
+  CLE_MAITRE: ${CLE_MAITRE:?à définir dans .env (outils/preparer_env.py)}
+  ENVIRONNEMENT: ${ENVIRONNEMENT:-developpement}
+  # Partagés avec d'autres conteneurs (Asterisk, Kannel) : restent dans .env.
   CLES_API: ${CLES_API:?à définir dans .env}
   CLE_API_CENTRE_ECOUTE: ${CLE_API_CENTRE_ECOUTE:?à définir dans .env}
-  CLE_MINISTERE: ${CLE_MINISTERE:?à définir dans .env}
-  ENVIRONNEMENT: ${ENVIRONNEMENT:-developpement}
-  NUMERO_VERT: ${NUMERO_VERT:-}
-  # Tableau de bord : vérifie les comptes auprès de Directus.
-  DIRECTUS_URL: http://directus:8055
-  SECRET_SESSION: ${SECRET_SESSION:?à définir dans .env}
-  SESSION_HTTPS_SEULEMENT: ${SESSION_HTTPS_SEULEMENT:-false}
-  FUSEAU_HORAIRE: ${FUSEAU_HORAIRE:-Africa/Kinshasa}
-  # Centre d'appels
-  CLE_CHIFFREMENT: ${CLE_CHIFFREMENT:?à définir dans .env}
   SECRET_POSTES: ${SECRET_POSTES:?à définir dans .env}
   NB_POSTES: ${NB_POSTES:-6}
   SVI_TOUCHES_LANGUES: ${SVI_TOUCHES_LANGUES:-fr:1,ln:2,sw:3,kg:4,lua:5}
-  DOSSIER_ENREGISTREMENTS: /donnees/enregistrements
-  CONSERVATION_ENREGISTREMENTS_JOURS: ${CONSERVATION_ENREGISTREMENTS_JOURS:-90}
-  CONSERVATION_RAPPELS_JOURS: ${CONSERVATION_RAPPELS_JOURS:-7}
+  SIP_DOMAINE: ${SIP_DOMAINE:-rgph2.local}
+  FUSEAU_HORAIRE: ${FUSEAU_HORAIRE:-Africa/Kinshasa}
+  KANNEL_MDP: ${KANNEL_MDP:?à définir dans .env}
+  SIMULATEUR_MOBILE: ${SIMULATEUR_MOBILE:-false}
   # Adresse WebSocket d'Asterisk vue du navigateur des agents (wss://… en production).
   ASTERISK_WS_URL: ${ASTERISK_WS_URL:-ws://localhost:8088/ws}
-  SIP_DOMAINE: ${SIP_DOMAINE:-rgph2.local}
-  # USSD et SMS
-  USSD_CODE: ${USSD_CODE:-}
+  # Adresses internes des autres services.
+  DIRECTUS_URL: http://directus:8055
+  DOSSIER_ENREGISTREMENTS: /donnees/enregistrements
   SMS_PASSERELLE: kannel
   KANNEL_URL: http://sms:13013/cgi-bin/sendsms
-  KANNEL_MDP: ${KANNEL_MDP:?à définir dans .env}
-  SMS_EXPEDITEUR: ${SMS_EXPEDITEUR:-RGPH2}
-  SMS_REPONSES_PAR_JOUR: ${SMS_REPONSES_PAR_JOUR:-10}
-  SMS_SEGMENTS_MAX: ${SMS_SEGMENTS_MAX:-3}
-  BADGES_VERIFICATIONS_PAR_HEURE: ${BADGES_VERIFICATIONS_PAR_HEURE:-10}
-  SIMULATEUR_MOBILE: ${SIMULATEUR_MOBILE:-false}
-  # WhatsApp (API officielle de Meta). « simulation » tant que le compte n'est pas ouvert.
-  WHATSAPP_PASSERELLE: ${WHATSAPP_PASSERELLE:-simulation}
-  WHATSAPP_NUMERO_ID: ${WHATSAPP_NUMERO_ID:-}
-  WHATSAPP_JETON: ${WHATSAPP_JETON:-}
-  WHATSAPP_SECRET_APP: ${WHATSAPP_SECRET_APP:-}
-  WHATSAPP_JETON_VERIFICATION: ${WHATSAPP_JETON_VERIFICATION:-}
+  TRANSCRIPTION_URL: http://transcription:9000
 
 x-url-api: &url-api postgresql+psycopg://rgph_api:${RGPH_API_MDP}@postgres:5432/rgph
 
@@ -89,6 +74,9 @@ services:
       DATABASE_URL: *url-api
       # Adresse du proxy HTTPS : sans elle, tous les citoyens partagent la même limite de débit.
       FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-127.0.0.1}
+      # Processus d'uvicorn : un cœur de processeur chacun, environ 95 requêtes/s (voir
+      # charge/LISEZMOI.md). 1 avec les simulateurs, qui gardent leurs messages en mémoire.
+      WEB_CONCURRENCY: ${API_PROCESSUS:-1}
     volumes:
       - enregistrements:/donnees/enregistrements
     ports:
@@ -171,6 +159,26 @@ services:
       api:
         condition: service_started
 
+  # Transcription des messages vocaux (modèle open source, voir transcription/LISEZMOI.md).
+  # Démarré seulement avec : docker compose --profile transcription up -d
+  transcription:
+    build: ./transcription
+    image: rgph2-transcription:local
+    profiles: ["transcription"]
+    restart: unless-stopped
+    environment:
+      MODELE: ${TRANSCRIPTION_MODELE:-facebook/mms-1b-all}
+      CODES_LANGUES: ${TRANSCRIPTION_CODES:-fr:fra,ln:lin,sw:swh,kg:kng,lua:lua}
+      DUREE_MAX: ${TRANSCRIPTION_DUREE_MAX:-180}
+    volumes:
+      # Modèle téléchargé une fois (environ 4 Go), gardé entre les redémarrages.
+      - modeles_transcription:/modeles
+    # Serveur avec GPU NVIDIA : décommenter (et voir le Dockerfile).
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices: [{driver: nvidia, count: 1, capabilities: [gpu]}]
+
   directus:
     image: directus/directus:11.5.1
     restart: unless-stopped
@@ -222,3 +230,5 @@ volumes:
   enregistrements:
   # SMS en attente d'envoi (file de Kannel).
   file_sms:
+  # Modèle de transcription téléchargé (service « transcription »).
+  modeles_transcription:

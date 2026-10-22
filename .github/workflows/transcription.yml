@@ -1,0 +1,103 @@
+# Mesure des modèles de transcription (Meta MMS, Meta Omnilingual ASR) sur de vrais
+# enregistrements (Google FLEURS) : lingala de RDC, kiswahili, français ; couverture du
+# kikongo et du tshiluba. Lourd (modèles de plusieurs Go) : seulement quand le service
+# de transcription change, ou à la demande. Le rapport est dans le résumé du run.
+name: Transcription (modèle réel)
+
+on:
+  push:
+    paths:
+      - "transcription/*.py"
+      - "transcription/Dockerfile"
+      - "transcription/requirements*.txt"
+      - ".github/workflows/transcription.yml"
+  workflow_dispatch:
+    inputs:
+      nombre:
+        description: "Enregistrements par langue"
+        default: "40"
+      mms:
+        description: "Mesurer aussi MMS (déjà mesuré le 20 octobre 2026)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: transcription-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mesure:
+    if: github.event_name == 'workflow_dispatch' && inputs.mms
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: Dépendances (PyTorch pour processeur, comme l'image du service)
+        run: |
+          pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.4,<3"
+          pip install -r transcription/requirements.txt huggingface_hub httpx
+          pip install -e .
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-mms-1b-all-fleurs-v1
+      - name: Mesure
+        run: |
+          python transcription/evaluer_fleurs.py --nombre "${{ inputs.nombre || '40' }}" --sortie rapport.md
+          cat rapport.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rapport-transcription
+          path: rapport.md
+          if-no-files-found: ignore
+
+  omnilingual:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        modele: [omniASR_CTC_1B, omniASR_LLM_1B]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Outils système (ffmpeg ; libsndfile pour fairseq2 ; compilateur pour kenlm)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg libsndfile1 build-essential cmake zlib1g-dev
+      - name: Dépendances (PyTorch pour processeur)
+        run: |
+          # fairseq2 de PyPI est compilé pour CUDA : variante processeur, index de Meta.
+          pip install --extra-index-url https://download.pytorch.org/whl/cpu \
+            --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.8.0/cpu \
+            "torch==2.8.0" "torchaudio==2.8.0" -r transcription/requirements.txt \
+            -r transcription/requirements-omnilingual.txt huggingface_hub httpx
+          pip install -e .
+          python -c "import torch; print('torch', torch.__version__)"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/huggingface
+            ~/.cache/fairseq2
+          key: omnilingual-${{ matrix.modele }}-fleurs-v1
+      - name: Mesure
+        run: |
+          python transcription/evaluer_fleurs.py --moteur omnilingual --modele "${{ matrix.modele }}" \
+            --nombre "${{ inputs.nombre || '20' }}" --sortie rapport.md
+          cat rapport.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rapport-${{ matrix.modele }}
+          path: rapport.md
+          if-no-files-found: ignore

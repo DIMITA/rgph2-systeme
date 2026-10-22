@@ -10,7 +10,8 @@ Ce dépôt contient le **cœur commun** auquel se brancheront les six canaux du 
 - étape 5 : l'**USSD et les SMS** (menus, mots-clés, calendrier de passage, vérification des badges), avec la passerelle SMS Kannel ;
 - toutes les interfaces aux couleurs de la **Charte graphique du Gouvernement** (Marque État Congolais) ;
 - étape 6a : le **bot WhatsApp** (API officielle de Meta), relié à la base fermée et aux services de l'USSD ;
-- étape 6b : les **rappels de passage** par WhatsApp (abonnement, envoi 3 jours avant et la veille, STOP) et la section WhatsApp du tableau de bord.
+- étape 6b : les **rappels de passage** par WhatsApp (abonnement, envoi 3 jours avant et la veille, STOP) et la section WhatsApp du tableau de bord ;
+- étape 7 : les **kiosques OKAPI** et les **Ambassadeurs** : une application hors ligne commune, des appareils enrôlés un par un et révocables, et l'espace du tableau de bord qui les gère.
 
 Le cœur fait trois choses :
 
@@ -33,6 +34,7 @@ Les contenus sont rédigés et validés par le Ministère dans **Directus** (le 
 - [Centre d'appels (numéro vert)](#centre-dappels-numéro-vert)
 - [USSD et SMS](#ussd-et-sms)
 - [WhatsApp](#whatsapp)
+- [Kiosques et Ambassadeurs](#kiosques-et-ambassadeurs)
 - [Charte graphique du Gouvernement](#charte-graphique-du-gouvernement)
 - [Protection des données](#protection-des-données)
 - [Exploitation](#exploitation)
@@ -46,8 +48,8 @@ Les contenus sont rédigés et validés par le Ministère dans **Directus** (le 
 
 ```
   WhatsApp  Kiosques  Ambassadeurs   USSD    SMS (SMPP)           Numéro vert
-      └─────────┴──────────┘          │   ┌───▼────┐                  │
-         (étapes suivantes)  agréga-  │   │ Kannel │           ┌──────▼──────┐
+      │     └─────┬────┘              │   ┌───▼────┐                  │
+      │   appli /terrain/    agréga-  │   │ Kannel │           ┌──────▼──────┐
                               teur    │   └───┬────┘           │  Asterisk   │ SVI, file,
                               │◄──────┘◄──────┘                │ (conteneur) │ enregistrements
                               │◄───────────────────────────────┴─────────────┘
@@ -75,7 +77,9 @@ Chaque module est un dossier de `src/coeur/` qui contient `modeles.py` (tables),
 
 | Module | Rôle |
 | --- | --- |
-| `connaissances/` | Lit les contenus publiés et choisit la bonne réponse (`moteur.py`), ou décide d'escalader |
+| `connaissances/` | Lit les contenus publiés et choisit la bonne réponse (`moteur.py`), ou décide d'escalader ; évaluation langue par langue, à l'écrit et à la voix (`evaluation.py`) |
+| `reglages/` | Réglages du cœur gardés en base, chiffrés avec `CLE_MAITRE` ; assistant d'initialisation (`python -m coeur.reglages`) |
+| `comprehension/` | Voix → texte : transcripteur interchangeable (aucun, service du projet, simulation), langues ouvertes une à une |
 | `interactions/` | Journal de chaque question (sans nom ni numéro en clair) |
 | `signalements/` | Signalements localisés envoyés par les canaux, et leur suivi par le Ministère |
 | `statistiques/` | Agrégats par pays, province ou territoire, avec secret statistique |
@@ -91,6 +95,7 @@ Chaque module est un dossier de `src/coeur/` qui contient `modeles.py` (tables),
 | `ussd/` | Menus USSD (`moteur.py`) rejoués à partir de la saisie cumulée |
 | `sms/` | Mots-clés et questions par SMS (`analyse.py`), envoi par Kannel (`passerelle.py`) avec plafond journalier |
 | `whatsapp/` | Bot WhatsApp : webhook signé (`routes.py`), conversation en listes et boutons (`conversation.py`), envoi par l'API Graph (`passerelle.py`) |
+| `terrain/` | Kiosques et Ambassadeurs : appareils enrôlés (jeton par appareil), paquet hors ligne, remontées sans doublon, application hors ligne (`statique/`) |
 | `simulateur/` | Page de test imitant un téléphone basique (désactivée par défaut, jamais en production) |
 | `charte/` | Charte graphique du Gouvernement : feuille de style, bloc-marque, police, armoiries, pages d'erreur, documentation de l'API |
 
@@ -111,15 +116,19 @@ Un contenu n'est servi que si **le contenu ET sa traduction** sont au statut `pu
 
 ## Démarrer
 
-Prérequis : Docker (avec Docker Compose v2) et Git. Python 3.11 ou plus est nécessaire seulement pour lancer les tests hors Docker.
+Prérequis : Docker (avec Docker Compose v2), Git et Python 3.11 ou plus. Tout ce qu'il faut obtenir par ailleurs (serveur, domaine, opérateurs, Meta…) et comment l'obtenir : [PREREQUIS.md](PREREQUIS.md). Ce qui est mesuré sur la compréhension des langues nationales, à la voix et à l'écrit, et la démarche pour le kikongo : [COMPREHENSION.md](COMPREHENSION.md). Capacité mesurée et dimensionnement : [charge/LISEZMOI.md](charge/LISEZMOI.md).
 
 ```bash
-# 1. Créer le fichier de secrets
-cp .env.exemple .env
-#    → remplacer TOUTES les valeurs « changer-... »
-#      python -c "import secrets; print(secrets.token_urlsafe(32))"
+# 1. Préparer le .env : secrets d'infrastructure tirés au hasard, questions pour le reste
+#    (laisser vide ce qu'on n'a pas encore). Ranger CLE_MAITRE dans un coffre-fort.
+python outils/preparer_env.py
 
-# 2. Démarrer PostgreSQL, les migrations, l'API, Directus et sa configuration
+# 2. Créer la base, puis saisir les réglages du cœur (gardés CHIFFRÉS en base) :
+#    pepper et clés tirés au hasard, numéro vert, code USSD, WhatsApp, transcription…
+docker compose up -d postgres migrations
+docker compose run --rm migrations python -m coeur.reglages initialiser
+
+# 3. Démarrer le reste : API, Directus et sa configuration, téléphonie, SMS, tâches
 docker compose up -d
 
 # 3. Importer le référentiel des territoires (voir donnees/LISEZMOI.md)
@@ -268,7 +277,7 @@ Le portail est le canal « web ». Il fait partie du cœur et appelle directemen
 - Les textes affichés sont échappés, et le script n'utilise jamais `innerHTML`.
 - Une politique CSP stricte n'autorise que les ressources du site lui-même.
 - Le débit est limité par adresse IP : 20 questions par minute et 5 signalements par heure, réglables.
-- Les adresses IP restent en mémoire le temps de la fenêtre de comptage et ne sont jamais enregistrées.
+- Les adresses IP sont comptées en base sous forme d'empreinte (HMAC), jamais en clair, dans une table non journalisée effacée par les tâches périodiques.
 
 > **Derrière un proxy HTTPS**, renseigner `FORWARDED_ALLOW_IPS` avec l'adresse du proxy. Sinon, toutes les requêtes semblent venir du proxy, et l'ensemble des citoyens partage la même limite de débit.
 
@@ -295,7 +304,7 @@ Les Rédacteurs et les Lecteurs sont refusés. La session dure 8 heures, dans un
 **Mêmes garde-fous que l'API :**
 
 - pas de maille plus fine que le territoire ;
-- effectifs inférieurs à `SEUIL_SECRET_STATISTIQUE` affichés « < 5 », y compris dans l'export ;
+- effectifs inférieurs à `SEUIL_SECRET_STATISTIQUE`, et ceux qui permettraient de les retrouver par différence, affichés « masqué » (vides dans l'export) ;
 - aucune localité dans les statistiques. Seule la liste des signalements montre le quartier ou le village, parce que les équipes de terrain en ont besoin.
 
 **Heures.** La base enregistre en UTC. Le tableau de bord affiche les heures et découpe les journées selon `FUSEAU_HORAIRE` : `Africa/Kinshasa` (UTC+1) par défaut, ou `Africa/Lubumbashi` (UTC+2) pour l'est.
@@ -402,7 +411,7 @@ Le tableau de bord présente une section *USSD et SMS* : dates de passage consul
 
 ## WhatsApp
 
-Le bot WhatsApp offre les services de l'USSD et du SMS sous forme de **listes et de boutons**. Il répond aussi aux **questions écrites** : la base fermée donne la réponse complète validée, avec l'**audio et la vidéo en langue locale** s'il y en a. Sans réponse validée, il propose un rappel par un conseiller, qui arrive dans la console des agents.
+Le bot WhatsApp offre les services de l'USSD et du SMS sous forme de **listes et de boutons**. Il répond aussi aux **questions écrites et aux messages vocaux** dans la langue du citoyen. À la voix, il fait d'abord confirmer le sujet compris (Oui / Non). Dans les deux cas, la base fermée donne la réponse complète validée, avec l'**audio et la vidéo en langue locale** s'il y en a. Sans réponse validée, il propose un rappel par un conseiller, qui arrive dans la console des agents.
 
 Il passe par l'**API officielle de Meta**, la seule disponible : **les messages transitent donc hors de RDC**. C'est un point à faire arbitrer par le point focal protection des données. Le cœur ne garde que l'empreinte du numéro, jamais le texte des messages.
 
@@ -411,7 +420,32 @@ Il passe par l'**API officielle de Meta**, la seule disponible : **les messages 
 - **Sécurité** : toute notification sans signature valide de Meta (`X-Hub-Signature-256`) est refusée.
 - **Rappels de passage** : « Prévenez-moi » après une date de passage. Le citoyen reçoit un message 3 jours avant le passage, puis la veille, entre 8 h et 18 h. `STOP` efface tout. Le numéro des abonnés est conservé **chiffré** et effacé 7 jours après le passage. Les rappels utilisent un **modèle approuvé par Meta** et sont **facturés** ; le texte à soumettre est dans le LISEZMOI.
 - **Tableau de bord** : la section WhatsApp donne les messages reçus, les usagers distincts, les réponses (gratuites), les rappels envoyés (facturés), les abonnés et les échecs d'envoi.
+- **Messages vocaux** : transcrits par un modèle open source hébergé par le projet (conteneur `transcription`, profil Docker du même nom), dans les langues ouvertes une à une après évaluation (`TRANSCRIPTION_LANGUES`). Sinon, proposition de rappel. Mise en service, modèle, licence, matériel et procédure d'ouverture d'une langue : [transcription/LISEZMOI.md](transcription/LISEZMOI.md).
 - **Tester sans compte Meta** : la section WhatsApp du simulateur (`/simulateur`), et `python outils/verifier_whatsapp.py`.
+
+---
+
+## Kiosques et Ambassadeurs
+
+Les deux canaux de terrain partagent **une application hors ligne**, servie par le cœur sous `/terrain/` et installable sur une tablette ou un téléphone Android. Elle s'adapte au type d'appareil :
+
+- **Kiosque OKAPI** : choix de la langue à chaque visiteur, questions fréquentes validées (recherche, audio), date de passage, ménage non recensé, agent douteux, « ma question n'est pas dans la liste ». Retour au choix de la langue après 2 minutes sans action.
+- **Ambassadeur** : les mêmes réponses pour informer, plus la remontée des **rumeurs** et des **doutes** entendus sur le terrain.
+
+Sans réseau, l'appareil affiche la FAQ et le calendrier téléchargés à la dernière synchronisation, et met ce qu'il recueille en file d'attente. La file part dès que le réseau revient, **sans doublon possible**. Seule la vérification de badge demande du réseau : embarquer la liste des badges la livrerait aux faussaires.
+
+Chaque appareil a **son propre jeton**, obtenu avec un code d'activation à usage unique. Un appareil perdu ou volé se **révoque** depuis le tableau de bord (espace « Kiosques et Ambassadeurs », rôles `ROLES_TERRAIN`). Aucun nom de personne n'est enregistré : un Ambassadeur n'est connu que par le code de son appareil.
+
+Les remontées arrivent avec le reste : questions dans « Questions sans réponse » (motif « Recueillie sur le terrain »), signalements et rumeurs dans « Signalements », consultations dans les statistiques.
+
+Enrôlement, préparation des tablettes (mode kiosque Android), audio hors ligne et exploitation : [terrain/LISEZMOI.md](terrain/LISEZMOI.md).
+
+| Point d'entrée | Rôle |
+| --- | --- |
+| `POST /v1/terrain/activation` | Échange le code d'activation contre le jeton de l'appareil (une seule fois) |
+| `GET /v1/terrain/paquet` | FAQ publiée dans les langues de l'appareil, calendrier, territoires, textes. `If-None-Match` → 304 si rien n'a changé |
+| `POST /v1/terrain/remontees` | Consultations, questions, signalements, dates consultées : 200 par lot au plus, chacun avec un UUID |
+| `POST /v1/terrain/badge` | Vérification d'un badge (en ligne), plafonnée par appareil |
 
 ---
 
@@ -452,7 +486,7 @@ Ces règles sont **appliquées par le code** et **vérifiées par des tests**, p
 | Numéro de téléphone | Jamais stocké. Seule son **empreinte HMAC-SHA256** (`confidentialite/service.py`) est conservée : elle permet de compter les usagers uniques | `test_interaction_journalisee_sans_donnee_personnelle` |
 | Textes libres | Les suites de 6 chiffres ou plus et les adresses électroniques sont remplacées par `[masqué]` | `test_confidentialite.py` |
 | Statistiques jamais sous le territoire | Seuls les niveaux `national`, `province` et `territoire` existent. La localité des signalements n'est jamais lue par les statistiques | `test_aucune_maille_plus_fine_que_le_territoire`, `test_signalements_agreges_sans_localite` |
-| Secret statistique | Effectif entre 1 et 4 masqué (`SEUIL_SECRET_STATISTIQUE`=5). Une ligne entière est masquée si elle compte moins de 5 interactions | `test_niveau_territoire_avec_secret_statistique` |
+| Secret statistique | Effectif entre 1 et 4 masqué (`SEUIL_SECRET_STATISTIQUE`=5). Une ligne entière est masquée si elle compte moins de 5 interactions. Masquage complémentaire : une case masquée ne se déduit jamais d'un total publié (national, province, canal, langue). Effectifs publiés perturbés de ± 2 (clé de cellule) : pas de déduction par différence entre périodes | `test_niveau_territoire_avec_secret_statistique`, `test_secret_statistique.py` |
 | Conservation limitée | Commande `purger` (voir [Exploitation](#exploitation)) | `test_retention.py` |
 | Cloisonnement | 3 rôles PostgreSQL. L'API ne peut pas modifier les contenus. Directus ne voit ni les interactions ni les signalements | `test_droits_base.py` |
 | Numéro des demandes de rappel | **Chiffré** dans la base, effacé dès le rappel traité ou après 7 jours | `test_demande_de_rappel_chiffree`, `test_rappels_expires_apres_sept_jours` |
@@ -491,7 +525,21 @@ docker compose up directus-config
 python outils/verifier_pile.py
 ```
 
-### Réglages (`.env`)
+### Réglages
+
+Deux endroits, selon qui lit le réglage :
+
+- **`.env`** (préparé par `outils/preparer_env.py`) : ce qu'il faut avant d'atteindre la base (mots de passe PostgreSQL, `CLE_MAITRE`), et ce que lisent aussi Directus, Asterisk ou Kannel (`CLES_API`, `CLE_API_CENTRE_ECOUTE`, `SECRET_POSTES`, liaisons des opérateurs, `KANNEL_MDP`…).
+- **En base, chiffré avec `CLE_MAITRE`** (table `coeur.reglages`) : tout ce que seul le cœur lit. Le nom du réglage est celui de la variable, en minuscules :
+
+```bash
+docker compose run --rm migrations python -m coeur.reglages lister                 # secrets masqués
+docker compose run --rm migrations python -m coeur.reglages definir numero_vert "0800 000 000"
+docker compose run --rm migrations python -m coeur.reglages definir whatsapp_jeton  # saisie masquée
+docker compose restart api taches                                                  # prise en compte
+```
+
+Une variable d'environnement du même nom l'emporte sur la base (tests, dépannage) ; `docker-compose.yml` n'en passe volontairement aucune pour ces réglages. Une sauvegarde de la base ne révèle aucun secret sans `CLE_MAITRE` : la ranger dans un coffre-fort, **à part** des sauvegardes. Pour la changer : `docker compose run --rm -e CLE_MAITRE_NOUVELLE=… migrations python -m coeur.reglages changer-cle-maitre`, puis mettre la nouvelle dans `.env`.
 
 | Variable | Défaut | Rôle |
 | --- | --- | --- |
@@ -501,6 +549,9 @@ python outils/verifier_pile.py
 | `SEUIL_CONFIANCE` | 0.5 | Plus haut : plus d'escalades, moins de risque d'erreur |
 | `MARGE_AMBIGUITE` | 0.1 | Écart minimal entre les deux meilleurs contenus |
 | `SEUIL_SECRET_STATISTIQUE` | 5 | Effectif minimal publié |
+| `TRANSCRIPTION` | `aucune` | Messages vocaux : `aucune`, `service` (conteneur `transcription`) ou `simulation` (tests) |
+| `TRANSCRIPTION_LANGUES` | (vide) | Langues dont les messages vocaux sont transcrits, ouvertes une à une après évaluation, ex. `sw,ln` |
+| `CONSERVATION_TEXTE_QUESTIONS` | `tout` | Texte (masqué) des questions gardé dans le journal : `tout`, `escalades` ou `aucun`. À arbitrer par le point focal protection des données |
 | `CACHE_CONTENUS_SECONDES` | 60 | Délai maximal de prise en compte d'une publication |
 | `ENVIRONNEMENT` | developpement | Avec `production`, le chargement des exemples est refusé |
 | `NUMERO_VERT` | (vide) | Affiché par le portail en cas d'escalade. Vide : aucun numéro affiché |
@@ -522,6 +573,10 @@ python outils/verifier_pile.py
 | `RAPPEL_APRES_SECONDES` | 180 | Attente avant de proposer un rappel |
 | `CONSERVATION_ENREGISTREMENTS_JOURS` | 90 | Durée de conservation des conversations enregistrées |
 | `CONSERVATION_RAPPELS_JOURS` | 7 | Délai au-delà duquel un numéro à rappeler est effacé |
+| `ROLES_TERRAIN` | `Administrator` | Rôles Directus qui enrôlent et révoquent les kiosques et les appareils des Ambassadeurs |
+| `TERRAIN_ACTIVATION_JOURS` | 7 | Validité d'un code d'activation d'appareil |
+| `CONSERVATION_REMONTEES_JOURS` | 60 | Durée de vie des identifiants anti-doublon des remontées de terrain |
+| `RAPPEL_RESERVATION_MINUTES` | 30 | Durée pendant laquelle un rappel pris et non clôturé reste réservé à son agent |
 | `OPERATEUR_SIP_*`, `SIP_ADRESSE_EXTERNE` | (vide) | Liaison de l'opérateur et adresse publique du serveur, aussi annoncée aux navigateurs des agents (voir [asterisk/LISEZMOI.md](asterisk/LISEZMOI.md)) |
 | `ASTERISK_WS_URL` | ws://localhost:8088/ws | Adresse WebSocket d'Asterisk vue du navigateur des agents (`wss://…` en production) |
 | `SIP_DOMAINE` | rgph2.local | Domaine SIP des postes |
@@ -545,7 +600,7 @@ python outils/verifier_pile.py
 ### Avant la mise en production
 
 - [ ] Remplacer `donnees/territoires.csv` par le référentiel officiel de l'INS.
-- [ ] Générer des secrets forts et uniques, et ranger `PEPPER_TELEPHONE` dans un coffre-fort.
+- [ ] Préparer le `.env` avec `outils/preparer_env.py`, saisir les réglages avec `python -m coeur.reglages initialiser`, et ranger `CLE_MAITRE` dans un coffre-fort, à part des sauvegardes de la base. Liste de ce qu'il faut obtenir : [PREREQUIS.md](PREREQUIS.md).
 - [ ] Placer l'API et Directus derrière un proxy HTTPS (Nginx, Caddy…), renseigner `FORWARDED_ALLOW_IPS` et passer `SESSION_HTTPS_SEULEMENT=true`. Ne pas exposer PostgreSQL.
 - [ ] Renseigner `NUMERO_VERT` dès qu'il est attribué. Faire relire `ln.json` et traduire l'interface en kiswahili, kikongo et tshiluba.
 - [ ] Mettre en place des sauvegardes PostgreSQL chiffrées (`pg_dump`) **et tester leur restauration**.
@@ -556,6 +611,8 @@ python outils/verifier_pile.py
 - [ ] Faire valider par l'INS l'intitulé du bloc-marque (*Institut national de la statistique, Bureau central du recensement*, dans `src/coeur/charte/__init__.py`) et, le cas échéant, par le Ministère de la Communication et Médias, garant de la charte.
 - [ ] USSD et SMS : obtenir le code court (ARPTC), la liaison SMPP et un agrégateur USSD (fiche dans `sms/LISEZMOI.md`). Importer la vraie liste des badges, saisir et publier le calendrier, faire relire les textes en lingala. Mettre `SMS_SIMULATION=false` et `SIMULATEUR_MOBILE=false`.
 - [ ] WhatsApp : faire vérifier l'entreprise (INS) chez Meta, obtenir le numéro et le jeton permanent, abonner le webhook en HTTPS, soumettre le profil (fiche dans `whatsapp/LISEZMOI.md`). **Faire arbitrer le transit des messages par Meta** par le point focal protection des données. Faire approuver le modèle `rappel_passage` et prévoir son budget.
+- [ ] Kiosques et Ambassadeurs : choisir et préparer les tablettes (Android 9 ou plus, Chrome à jour, épinglage d'écran), faire envoyer par l'hébergeur de l'audio l'en-tête `Access-Control-Allow-Origin` (fiche dans `terrain/LISEZMOI.md`), traduire `src/coeur/terrain/textes/fr.json` dans les langues des zones et le faire relire.
+- [ ] Messages vocaux : faire confirmer la licence du modèle (MMS : CC-BY-NC 4.0), prévoir le GPU du pic, trancher la variante du kikongo, évaluer chaque langue sur de vrais messages avant de l'ouvrir (fiche dans `transcription/LISEZMOI.md`).
 - [ ] Console des agents : publier le WebSocket d'Asterisk (port 8088) **en `wss://` derrière le proxy HTTPS**, et renseigner `ASTERISK_WS_URL`. Les navigateurs n'autorisent le micro que sur un site en HTTPS. Renseigner `SIP_ADRESSE_EXTERNE` avec l'adresse IP publique.
 
 ---
@@ -567,7 +624,10 @@ python -m venv .venv && .venv/Scripts/activate      # Linux/Mac : source .venv/b
 pip install -e ".[dev]"
 docker compose -f docker-compose.test.yml up -d     # base jetable, port 5433
 pytest
+ruff check src tests outils migrations               # erreurs de code, imports inutiles
 ```
+
+**Intégration continue** (`.github/workflows/ci.yml`), à chaque push et pull request : ruff, tests unitaires et d'intégration contre PostgreSQL en Python 3.11 et 3.12, `alembic check` (modèles et migrations alignés), construction des trois images Docker et validation de `docker-compose.yml`. Les vérifications sur la pile complète (`outils/verifier_*.py`) restent manuelles.
 
 - `tests/unitaires/` : moteur de recherche, confidentialité, limiteur de débit, alphabet GSM, mots-clés SMS, longueur des écrans USSD dans chaque langue. Ces tests ne demandent pas de base.
 - `tests/integration/` : API de bout en bout contre PostgreSQL, migrations, droits des rôles. Chaque lancement repart d'une base vide et vérifie au passage que les migrations s'appliquent et s'annulent.
@@ -575,6 +635,8 @@ pytest
 - `outils/verifier_mobile.py` : une session USSD, puis des SMS envoyés par l'opérateur simulé de Kannel (aller et retour), et le contrôle de l'absence de numéro en clair dans la base et les journaux. Il faut `SMS_SIMULATION=true`.
 - `outils/verifier_whatsapp.py` : des notifications signées comme celles de Meta, envoyées au webhook (langue, menu, FAQ, question libre, badge, rappel), et le contrôle de l'absence de numéro en clair. Il faut `WHATSAPP_PASSERELLE=simulation` et `SIMULATEUR_MOBILE=true`.
 - `outils/verifier_telephonie.py` : trois appels simulés (serveur vocal, rappel, agent) et contrôle de l'absence de numéro en clair. Il faut `TELEPHONIE_SIMULATION=true`.
+- `outils/verifier_question_vocale.py` : question dite au serveur vocal (touche 9), avec un faux service de transcription : enregistrement, sujet proposé, confirmation, réponse, effacement de la voix. Même prérequis.
+- `tests/integration/test_terrain_navigateur.py` : l'application de terrain dans Chromium, serveur réellement coupé puis relancé (file d'attente, absence de doublon, révocation). Prérequis : `pip install -e ".[e2e]"` et `python -m playwright install chromium` ; sans navigateur, le test est ignoré.
 - `outils/verifier_pile.py` : vérification sur la pile complète, Directus compris : circuit de validation et connexion au tableau de bord. Il ne journalise qu'une seule question, pour ne pas fausser les statistiques.
 
 ---
@@ -596,26 +658,35 @@ Penser aux droits des rôles (voir `_droits()` dans `migrations/versions/0001_sc
 
 **Changer d'agrégateur USSD.** `POST /v1/ussd` suit le format le plus répandu (`sessionId`, `phoneNumber`, `text` cumulé, réponse `CON`/`END`). Pour un autre format, ajouter une route qui traduit les champs puis appelle `ussd.service.traiter` ; le moteur ne change pas.
 
+**Évaluer le moteur langue par langue.** Rassembler de vraies questions (centre d'écoute, Ambassadeurs, questions escaladées du tableau de bord) dans un CSV `langue,question,attendu`, où `attendu` est la clé du contenu qui doit répondre, ou vide pour une question hors champ. Puis, sur la base qui sert l'API :
+
+```bash
+python -m coeur.connaissances.evaluation questions.csv --seuils 0.4,0.5,0.6 --details
+```
+
+Pour chaque langue : réponses justes, **fausses** (un autre contenu que le bon : la pire issue), escalades à tort et réponses à une question hors champ. Rien n'est journalisé. Modèle : `donnees/evaluation_exemple.csv`. Comparer plusieurs seuils aide à régler `SEUIL_CONFIANCE` ; les escalades à tort se corrigent d'abord en ajoutant des formulations dans Directus.
+
 **Changer de moteur de recherche** (par exemple Rasa, après évaluation langue par langue). Écrire une classe qui respecte `MoteurRecherche` (`connaissances/moteur.py`) et l'instancier dans `connaissances/depot.py`. La règle de décision (`decider`) et l'escalade ne changent pas. Garder les tests de `test_moteur.py` comme référence de qualité.
 
 ---
 
 ## Limites connues et points à trancher
 
-- **Moteur de recherche** : il est lexical (mots et variantes). Il fonctionne bien en français sur la FAQ d'exemple. Pour les langues nationales, la qualité dépendra surtout des **formulations** saisies. Il faut l'évaluer langue par langue avec de vraies questions.
-- **Secret statistique** : seul le masquage des petites cases est appliqué. En croisant plusieurs niveaux (national moins somme des territoires), on pourrait parfois déduire une valeur masquée. Ce point est à revoir avec le point focal protection des données avant toute publication externe.
-- **Texte des questions** : il est conservé, masqué, pour améliorer la FAQ. Un citoyen peut néanmoins y écrire un nom. Si ce risque est jugé trop élevé, on peut ne conserver que le texte des escalades, ou aucun texte.
+- **Messages vocaux et question dite au téléphone** : circuit testé de bout en bout (transcription simulée ou factice). Les modèles réels (MMS, Omnilingual ASR) ne sont mesurés que sur des **phrases lues** (FLEURS), pas sur de vraies questions du recensement, ni au téléphone (8 kHz) : aucune langue ne doit être ouverte avant cette mesure. Kikongo couvert par aucun modèle, tshiluba non mesurable faute d'enregistrements (voir `COMPREHENSION.md`). Textes des nouveaux messages en français seulement.
+- **Moteur de recherche** : il est lexical (mots et variantes). Il fonctionne bien en français sur la FAQ d'exemple. Pour les langues nationales, la qualité dépendra surtout des **formulations** saisies. Il faut l'évaluer langue par langue avec de vraies questions : l'outil existe (`python -m coeur.connaissances.evaluation`, voir « Faire évoluer le code »), les questions réelles en langues nationales manquent encore.
+- **Secret statistique** : petites cases masquées, masquage complémentaire dans chaque tableau publié (toutes les marges, et les territoires d'une même province), puis **perturbation par clé de cellule** des effectifs publiés (± 2, méthode de l'ONS au recensement britannique de 2021 et de l'ABS) : la différence entre deux périodes choisies (du 1er au 10 moins du 1er au 9) ne révèle plus une petite valeur exacte, et la même requête donne toujours le même chiffre. Contrepartie : un total peut différer de la somme de ses lignes, de quelques unités. Limite connue : un utilisateur qui multiplierait les paires de périodes autour du même jour pourrait moyenner le bruit ; le tableau de bord est réservé à des comptes nominatifs. Les chiffres des centres d'appels, de l'USSD et de WhatsApp sont des totaux nationaux, non perturbés. À faire valider par le point focal protection des données avant toute publication externe.
+- **Texte des questions** : il est conservé, masqué, pour améliorer la FAQ. Un citoyen peut néanmoins y écrire un nom. `CONSERVATION_TEXTE_QUESTIONS=escalades` ne garde que les questions restées sans réponse (celles qui servent à enrichir la FAQ), `aucun` n'en garde aucune. Le choix revient au point focal protection des données.
 - **Territoires** : le fichier fourni est un échantillon aux codes provisoires.
 - **Hébergement** : le lieu d'hébergement en RDC reste à décider (centre de données local ou cloud avec région locale). La pile Docker convient aux deux options.
 - **Interface du portail** : disponible en français et en lingala (proposition à relire). Les autres langues affichent l'interface en français tant que leur fichier `textes/<langue>.json` n'est pas fourni.
-- **Limite de débit** : elle est comptée par processus. Avec plusieurs processus ou serveurs, la limite effective est multipliée d'autant. Un compteur partagé (Redis) serait à prévoir si la charge l'exige.
+- **Limites de débit et anti-doublons** : comptés dans PostgreSQL (tables `UNLOGGED` `coeur.compteurs_debit` et `coeur.memoire_courte`), donc partagés par tous les processus et serveurs. Chaque contrôle coûte un aller-retour à la base ; si la charge du pic le rend trop coûteux, `coeur/limiteur.py` est le seul fichier à changer (Redis par exemple). La fenêtre glissante est estimée à partir de deux fenêtres fixes, et une requête refusée compte aussi : insister prolonge le blocage.
 - **Messages vocaux** : tant qu'ils ne sont pas enregistrés, une voix de synthèse française provisoire les remplace, y compris pour les autres langues.
 - **Postes partagés** : un poste ne sert qu'à un agent à la fois. Un second agent qui prend le même poste déconnecte le premier.
-- **Rappel resté « en cours »** : si l'agent qui l'a pris ne le clôture pas, le rappel reste bloqué jusqu'à l'expiration automatique (7 jours). L'administrateur peut le clôturer depuis son propre compte agent.
+- **Rappel resté « en cours »** : si l'agent qui l'a pris ne le clôture pas, le rappel lui reste réservé `RAPPEL_RESERVATION_MINUTES` (30 par défaut), puis redevient disponible pour les autres agents.
 - **Codecs** : postes et opérateur en G.711 (A-law, µ-law), sans transcodage. Asterisk n'a pas de module Opus libre.
 - **Sessions USSD rejouées** : le menu est recalculé à chaque échange à partir de la saisie cumulée. Il ne dépend donc d'aucune mémoire de session, et une demande répétée par la passerelle ne crée pas de doublon pendant 5 minutes. Ce format est celui de la plupart des agrégateurs ; un opérateur qui n'envoie que la dernière saisie demandera une petite route d'adaptation.
-- **Plafonds USSD et SMS** : le plafond de vérifications de badge est compté en mémoire, comme la limite de débit du portail. Le plafond de SMS, lui, est compté en base.
 - **Textes USSD et SMS** : en français, avec une proposition en lingala à relire. Les autres langues affichent les menus en français, mais servent les réponses validées dans leur langue.
 - **Charte dans Directus** : la page de connexion de Directus garde sa propre police, car Directus ne permet pas de la changer sur ses pages publiques. Le reste de l'application est en Cooper Hewitt.
-- **WhatsApp, premier message** : il reçoit l'accueil et le choix de la langue. Une question posée dans ce premier message n'est pas traitée : le citoyen la repose une fois sa langue choisie.
+- **WhatsApp, premier message** : il reçoit l'accueil et le choix de la langue. Une question posée dans ce premier message est gardée, masquée, au plus `WHATSAPP_ATTENTE_MINUTES`, puis traitée dès que la langue est choisie.
+- **Application de terrain** : interface en français seulement (`src/coeur/terrain/textes/`), les réponses étant servies dans la langue choisie. Testée dans Chromium ; à valider sur les tablettes retenues, en particulier la lecture de l'audio hors ligne. Les vidéos ne sont pas gardées hors ligne.
 - **Exemples de contenus** : ils sont en français seulement et marqués `[EXEMPLE non validé]`. Aucun texte en langue nationale n'est fourni : il doit venir de traducteurs et être validé par le BCR.
